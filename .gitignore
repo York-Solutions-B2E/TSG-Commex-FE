@@ -1,0 +1,38 @@
+# Build results
+bin/
+obj/
+out/
+
+# User secrets  
+appsettings.local.json
+appsettings.secrets.json
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# IDE files
+.vscode/
+.idea/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# NuGet
+packages/
+!packages/build/
+
+# Blazor specific
+wwwroot/dist/
+
+# Azure Key Vault certificates
+*.pfx
+*.p12
