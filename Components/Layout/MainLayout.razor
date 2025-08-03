@@ -7,7 +7,15 @@
 
     <main>
         <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+            <AuthorizeView>
+                <Authorized Context="authContext">
+                    <span class="me-3">Hello, @authContext.User.Identity?.Name!</span>
+                    <a href="/Auth/SignOut" class="btn btn-outline-primary btn-sm">Sign Out</a>
+                </Authorized>
+                <NotAuthorized>
+                    <a href="/Auth/SignIn" class="btn btn-primary btn-sm">Sign In</a>
+                </NotAuthorized>
+            </AuthorizeView>
         </div>
 
         <article class="content px-4">

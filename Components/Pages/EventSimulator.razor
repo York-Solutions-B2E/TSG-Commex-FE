@@ -1,5 +1,9 @@
 @page "/event-simulator"
 @rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@* TEMPORARILY REMOVE: @attribute [Authorize] *@
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
 <PageTitle>Event Simulator</PageTitle>
 
@@ -9,11 +13,27 @@
             <h1 class="display-4">🛰️ Event Simulator</h1>
             <p class="lead">Simulate communication status changes in real-time</p>
 
+            <AuthorizeView>
+                <Authorized>
+                    <div class="alert alert-success" role="alert">
+                        <h4 class="alert-heading">✅ Welcome, @context.User.Identity?.Name!</h4>
+                        <p>You are successfully authenticated and can access the Event Simulator.</p>
+                        <hr>
+                        <p class="mb-0">User ID: @context.User.FindFirst("sub")?.Value</p>
+                    </div>
+                </Authorized>
+                <NotAuthorized>
+                    <div class="alert alert-warning" role="alert">
+                        <h4 class="alert-heading">🔐 Authentication Required</h4>
+                        <p>You need to log in to access the Event Simulator.</p>
+                        <p><a href="/Auth/SignIn" class="btn btn-primary">Login with Okta</a></p>
+                    </div>
+                </NotAuthorized>
+            </AuthorizeView>
+
             <div class="alert alert-info" role="alert">
                 <h4 class="alert-heading">🚧 Coming Soon!</h4>
                 <p>This page will allow you to simulate communication events and see real-time updates.</p>
-                <hr>
-                <p class="mb-0">Stay tuned for RabbitMQ-powered event simulation! ⚡</p>
             </div>
         </div>
     </div>
