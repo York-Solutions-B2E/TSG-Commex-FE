@@ -33,9 +33,15 @@
         else
         {
             <MudGrid>
+                    <MudItem xs="6">
+                        <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">xs=6</MudPaper>
+                    </MudItem>
+                    <MudItem xs="6">
+                    <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">xs=6</MudPaper>
+                    </MudItem>
                 <MudItem xs="12" md="8">
                     <MudPaper Elevation="2" Class="pa-4 mb-4">
-                        <MudText Typo="Typo.h5" Class="mb-3">@communication.Subject</MudText>
+                        @* <MudText Typo="Typo.h5" Class="mb-3">@communication.Subject</MudText>
 
                         @if (!string.IsNullOrEmpty(communication.Message))
                         {
@@ -76,10 +82,10 @@
                                 <MudText Typo="Typo.body2">@communication.LastUpdatedUtc.ToString("MM/dd/yyyy hh:mm tt")
                                 </MudText>
                             </MudItem>
-                        </MudGrid>
+                        </MudGrid> *@
                     </MudPaper>
 
-                    <MudPaper Elevation="2" Class="pa-4">
+                    @* <MudPaper Elevation="2" Class="pa-4">
                         <MudText Typo="Typo.h6" Class="mb-3">📋 Status History</MudText>
 
                         @if (loadingStatusHistory)
@@ -137,7 +143,7 @@
                                 No status history found for this communication.
                             </MudAlert>
                         }
-                    </MudPaper>
+                    </MudPaper> *@
                 </MudItem>
             </MudGrid>
         }
