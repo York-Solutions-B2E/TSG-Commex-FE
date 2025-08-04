@@ -2,39 +2,440 @@
 @rendermode InteractiveServer
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
-@* TEMPORARILY REMOVE: @attribute [Authorize] *@
+@using TSG_Commex_Shared.DTOs
+@using Pastel
+@inject IHttpClientFactory HttpClientFactory
+@inject ILogger<EventSimulator> Logger
 @inject AuthenticationStateProvider AuthenticationStateProvider
 
 <PageTitle>Event Simulator</PageTitle>
 
-<div class="container mt-4">
-    <div class="row">
-        <div class="col-12">
-            <h1 class="display-4">🛰️ Event Simulator</h1>
-            <p class="lead">Simulate communication status changes in real-time</p>
+<MudText Typo="Typo.h3" Class="mb-2">🛰️ Event Simulator</MudText>
+<MudText Typo="Typo.subtitle1" Class="mb-4">Simulate communication status changes in real-time</MudText>
 
-            <AuthorizeView>
-                <Authorized>
-                    <div class="alert alert-success" role="alert">
-                        <h4 class="alert-heading">✅ Welcome, @context.User.Identity?.Name!</h4>
-                        <p>You are successfully authenticated and can access the Event Simulator.</p>
-                        <hr>
-                        <p class="mb-0">User ID: @context.User.FindFirst("sub")?.Value</p>
-                    </div>
-                </Authorized>
-                <NotAuthorized>
-                    <div class="alert alert-warning" role="alert">
-                        <h4 class="alert-heading">🔐 Authentication Required</h4>
-                        <p>You need to log in to access the Event Simulator.</p>
-                        <p><a href="/Auth/SignIn" class="btn btn-primary">Login with Okta</a></p>
-                    </div>
-                </NotAuthorized>
-            </AuthorizeView>
+<AuthorizeView>
+    <Authorized>
+        <MudGrid>
+            <MudItem xs="12" md="6">
+                <MudPaper Elevation="2" Class="pa-4">
+                    <MudText Typo="Typo.h5" Class="mb-3">Simulate Status Change</MudText>
+                    
+                    <MudForm @ref="form" @bind-IsValid="@success">
+                        
+                        <MudSelect T="CommunicationResponse" Label="Select Communication" Required="true" 
+                            @bind-Value="selectedCommunication" 
+                            RequiredError="Please select a communication!"
+                            Variant="Variant.Outlined" Class="mb-3"
+                            ToStringFunc="@(c => c == null ? "" : $"#{c.Id} - {c.Subject}")"
+                            ValueChanged="@(async (CommunicationResponse c) => await OnCommunicationSelected(c))">
+                            @if (availableCommunications == null)
+                            {
+                                <MudSelectItem Value="@((CommunicationResponse?)null)" Disabled="true">
+                                    Loading communications...
+                                </MudSelectItem>
+                            }
+                            else if (!availableCommunications.Any())
+                            {
+                                <MudSelectItem Value="@((CommunicationResponse?)null)" Disabled="true">
+                                    No communications found
+                                </MudSelectItem>
+                            }
+                            else
+                            {
+                                @foreach (var comm in availableCommunications)
+                                {
+                                    <MudSelectItem Value="@comm">
+                                        <div class="d-flex align-center justify-space-between">
+                                            <div>
+                                                <MudText Typo="Typo.body2">#{comm.Id} - @comm.Subject</MudText>
+                                                <MudText Typo="Typo.caption">Type: @comm.TypeCode | Status: @comm.CurrentStatus</MudText>
+                                            </div>
+                                        </div>
+                                    </MudSelectItem>
+                                }
+                            }
+                        </MudSelect>
+                        
+                        <MudSelect T="string" Label="Select Event" Required="true" 
+                            @bind-Value="selectedEvent" 
+                            RequiredError="Please select an event!"
+                            Variant="Variant.Outlined" Class="mb-3">
+                            @foreach (var evt in GetAvailableEvents())
+                            {
+                                <MudSelectItem Value="@evt.EventName">
+                                    <div class="d-flex align-center">
+                                        <MudChip T="string" Size="Size.Small" Color="@GetEventColor(evt.EventName)" Class="mr-2">
+                                            @evt.EventName
+                                        </MudChip>
+                                        <MudText Typo="Typo.caption">→ @evt.ResultingStatus</MudText>
+                                    </div>
+                                </MudSelectItem>
+                            }
+                        </MudSelect>
+                        
+                        <MudTextField T="string" Label="Notes (Optional)" 
+                            @bind-Value="notes" 
+                            Lines="3" Variant="Variant.Outlined" Class="mb-4" />
+                        
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" 
+                            Disabled="@(!success || isProcessing)" 
+                            OnClick="SimulateStatusChange" FullWidth="true">
+                            @if (isProcessing)
+                            {
+                                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                                <MudText Class="ms-2">Sending Event...</MudText>
+                            }
+                            else
+                            {
+                                <MudText>Send Status Change Event</MudText>
+                            }
+                        </MudButton>
+                    </MudForm>
+                    
+                    @if (!string.IsNullOrEmpty(resultMessage))
+                    {
+                        <MudAlert Severity="@(isError ? Severity.Error : Severity.Success)" Class="mt-3">
+                            @resultMessage
+                        </MudAlert>
+                    }
+                </MudPaper>
+            </MudItem>
+            
+            <MudItem xs="12" md="6">
+                <MudPaper Elevation="2" Class="pa-4">
+                    <MudText Typo="Typo.h5" Class="mb-3">Event History</MudText>
+                    
+                    @if (eventHistory.Any())
+                    {
+                        <MudTimeline>
+                            @foreach (var evt in eventHistory.Take(5))
+                            {
+                                <MudTimelineItem Color="@(evt.Success ? Color.Success : Color.Error)" Size="Size.Small">
+                                    <ItemContent>
+                                        <MudText Typo="Typo.subtitle2">@evt.CommunicationSubject</MudText>
+                                        <MudText Typo="Typo.body2">Event: @evt.EventName → @evt.NewStatus</MudText>
+                                        <MudText Typo="Typo.caption">@evt.Timestamp.ToString("MM/dd/yyyy hh:mm:ss tt")</MudText>
+                                        @if (!string.IsNullOrEmpty(evt.Notes))
+                                        {
+                                            <MudText Typo="Typo.caption" Class="font-italic">@evt.Notes</MudText>
+                                        }
+                                    </ItemContent>
+                                </MudTimelineItem>
+                            }
+                        </MudTimeline>
+                        
+                        <MudText Typo="Typo.caption" Class="mt-3" Align="Align.Center">
+                            Showing last @Math.Min(5, eventHistory.Count) of @eventHistory.Count events
+                        </MudText>
+                    }
+                    else
+                    {
+                        <MudAlert Severity="Severity.Info">
+                            No events sent yet. Use the form to simulate your first event!
+                        </MudAlert>
+                    }
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+        
+        <MudPaper Elevation="2" Class="pa-4 mt-4">
+            <MudText Typo="Typo.h5" Class="mb-3">Quick Test</MudText>
+            <MudText Typo="Typo.body1" Class="mb-3">
+                Use this button to quickly test the event system with predefined values.
+            </MudText>
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary" 
+                OnClick="QuickTest" Disabled="@isProcessing">
+                Send Test Event
+            </MudButton>
+        </MudPaper>
+    </Authorized>
+    <NotAuthorized>
+        <MudAlert Severity="Severity.Warning" Class="mt-4">
+            <MudText Typo="Typo.h6" Class="mb-2">🔐 Authentication Required</MudText>
+            <MudText Class="mb-3">You need to log in to access the Event Simulator.</MudText>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/Auth/SignIn">
+                Login with Okta
+            </MudButton>
+        </MudAlert>
+    </NotAuthorized>
+</AuthorizeView>
 
-            <div class="alert alert-info" role="alert">
-                <h4 class="alert-heading">🚧 Coming Soon!</h4>
-                <p>This page will allow you to simulate communication events and see real-time updates.</p>
-            </div>
-        </div>
-    </div>
-</div>
+@code {
+    private MudForm form = null!;
+    private bool success;
+    private bool isProcessing = false;
+    private bool isError = false;
+    private string? resultMessage;
+    
+    // Form fields
+    private IEnumerable<CommunicationResponse>? availableCommunications;
+    private CommunicationResponse? selectedCommunication;
+    private string selectedEvent = "";
+    private string notes = "";
+    private List<CommunicationTypeStatusResponse>? availableStatuses;
+    
+    // Event history
+    private List<EventHistoryItem> eventHistory = new();
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCommunications();
+    }
+    
+    private async Task OnCommunicationSelected(CommunicationResponse communication)
+    {
+        selectedCommunication = communication;
+        selectedEvent = ""; // Reset event selection
+        availableStatuses = null; // Reset statuses
+        
+        if (communication != null)
+        {
+            Console.WriteLine("┌─────────────────────────────────────────────────────────────────┐".Pastel("#00FF00"));
+            Console.WriteLine($"│ {"📋 Communication Selected".Pastel("#FFFF00")}                                       │");
+            Console.WriteLine("├─────────────────────────────────────────────────────────────────┤".Pastel("#00FF00"));
+            Console.WriteLine($"│ {"ID:".Pastel("#00FFFF")}          {communication.Id.ToString().PadRight(54)} │");
+            Console.WriteLine($"│ {"Subject:".Pastel("#00FFFF")}     {(communication.Subject.Length > 54 ? communication.Subject.Substring(0, 51) + "..." : communication.Subject.PadRight(54))} │");
+            Console.WriteLine($"│ {"Type:".Pastel("#00FFFF")}        {communication.TypeCode.PadRight(54)} │");
+            Console.WriteLine($"│ {"Status:".Pastel("#00FFFF")}      {communication.CurrentStatus.PadRight(54)} │");
+            Console.WriteLine($"│ {"Recipient:".Pastel("#00FFFF")}   {(communication.RecipientInfo.Length > 54 ? communication.RecipientInfo.Substring(0, 51) + "..." : communication.RecipientInfo.PadRight(54))} │");
+            Console.WriteLine($"│ {"Created:".Pastel("#00FFFF")}     {communication.CreatedUtc.ToString("yyyy-MM-dd HH:mm:ss").PadRight(54)} │");
+            Console.WriteLine("└─────────────────────────────────────────────────────────────────┘".Pastel("#00FF00"));
+            
+            Logger.LogInformation("Communication selected: {Id} - {Subject}", communication.Id, communication.Subject);
+            
+            // Load available statuses for this communication type
+            await LoadStatusesForType(communication.TypeCode);
+        }
+    }
+    
+    private async Task LoadStatusesForType(string typeCode)
+    {
+        try
+        {
+            var httpClient = HttpClientFactory.CreateClient("API");
+            availableStatuses = await httpClient.GetFromJsonAsync<List<CommunicationTypeStatusResponse>>(
+                $"api/communication-types/{typeCode}/statuses");
+            
+            Console.WriteLine($"{"✅ Loaded".Pastel("#00FF00")} {availableStatuses?.Count ?? 0} {"available statuses for".Pastel("#FFFFFF")} {typeCode.Pastel("#FFFF00")}");
+            StateHasChanged(); // Update UI
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading statuses for type {TypeCode}", typeCode);
+            Console.WriteLine($"{"❌ Error loading statuses:".Pastel("#FF0000")} {ex.Message}");
+            availableStatuses = new List<CommunicationTypeStatusResponse>();
+        }
+    }
+    
+    private async Task LoadCommunications()
+    {
+        try
+        {
+            Logger.LogInformation("Starting to load communications...");
+            var httpClient = HttpClientFactory.CreateClient("API");
+            availableCommunications = await httpClient.GetFromJsonAsync<IEnumerable<CommunicationResponse>>("api/communications");
+            Logger.LogInformation("Loaded {Count} communications", availableCommunications?.Count() ?? 0);
+            StateHasChanged(); // Force UI update
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading communications");
+            availableCommunications = new List<CommunicationResponse>();
+            StateHasChanged(); // Force UI update
+        }
+    }
+    
+    
+    private List<EventOption> GetAvailableEvents()
+    {
+        if (selectedCommunication == null || availableStatuses == null)
+            return new List<EventOption>();
+            
+        // Map statuses to events dynamically based on API response
+        return availableStatuses.Select(status => 
+        {
+            // Generate event name based on type code and status
+            var eventPrefix = selectedCommunication.TypeCode.ToUpper() switch
+            {
+                "EOB" => "EOB",
+                "EOP" => "EOP",
+                "ID_CARD" => "IdCard",
+                _ => "Document"
+            };
+            
+            var eventSuffix = status.StatusCode switch
+            {
+                "Created" => "Created",
+                "ReadyForRelease" => "Approved",
+                "Released" => "Released",
+                "QueuedForPrinting" => "Queued",
+                "Printed" => "Printed",
+                "Inserted" => "Inserted",
+                "Shipped" => "Shipped",
+                "Delivered" => "Delivered",
+                "Failed" => "Failed",
+                _ => status.StatusCode
+            };
+            
+            return new EventOption($"{eventPrefix}{eventSuffix}", status.StatusCode);
+        }).ToList();
+    }
+    
+    private async Task SimulateStatusChange()
+    {
+        isProcessing = true;
+        isError = false;
+        resultMessage = null;
+        
+        try
+        {
+            var httpClient = HttpClientFactory.CreateClient("API");
+            
+            // Find the resulting status from the selected event
+            var eventOption = GetAvailableEvents().FirstOrDefault(e => e.EventName == selectedEvent);
+            if (eventOption == null || selectedCommunication == null)
+            {
+                isError = true;
+                resultMessage = "❌ Invalid event or communication selection";
+                return;
+            }
+            
+            var request = new
+            {
+                CommunicationId = selectedCommunication.Id.ToString(),
+                NewStatus = eventOption.ResultingStatus,
+                Notes = string.IsNullOrWhiteSpace(notes) ? $"Event: {selectedEvent}" : $"Event: {selectedEvent} - {notes}"
+            };
+            
+            var response = await httpClient.PostAsJsonAsync("api/events/simulate-status-change", request);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                resultMessage = $"✅ Event '{selectedEvent}' published successfully! Communication #{selectedCommunication.Id} status will change to {eventOption.ResultingStatus}";
+                
+                // Add to history
+                eventHistory.Insert(0, new EventHistoryItem
+                {
+                    CommunicationId = selectedCommunication.Id.ToString(),
+                    CommunicationSubject = selectedCommunication.Subject,
+                    EventName = selectedEvent,
+                    NewStatus = eventOption.ResultingStatus,
+                    Notes = notes,
+                    Timestamp = DateTime.Now,
+                    Success = true
+                });
+                
+                // Clear form
+                selectedCommunication = null;
+                selectedEvent = "";
+                notes = "";
+                await form.ResetAsync();
+                
+                // Reload communications to reflect changes
+                await LoadCommunications();
+                
+                Logger.LogInformation("Successfully sent event {Event} for communication {CommunicationId}", selectedEvent, selectedCommunication?.Id);
+            }
+            else
+            {
+                isError = true;
+                resultMessage = $"❌ Failed to publish event: {response.StatusCode}";
+                
+                eventHistory.Insert(0, new EventHistoryItem
+                {
+                    CommunicationId = selectedCommunication.Id.ToString(),
+                    CommunicationSubject = selectedCommunication.Subject,
+                    EventName = selectedEvent,
+                    NewStatus = eventOption.ResultingStatus,
+                    Notes = notes,
+                    Timestamp = DateTime.Now,
+                    Success = false
+                });
+                
+                Logger.LogError("Failed to send event: {StatusCode}", response.StatusCode);
+            }
+        }
+        catch (Exception ex)
+        {
+            isError = true;
+            resultMessage = $"❌ Error: {ex.Message}";
+            Logger.LogError(ex, "Error sending event");
+        }
+        finally
+        {
+            isProcessing = false;
+            StateHasChanged();
+        }
+    }
+    
+    private async Task QuickTest()
+    {
+        isProcessing = true;
+        isError = false;
+        resultMessage = null;
+        
+        try
+        {
+            var httpClient = HttpClientFactory.CreateClient("API");
+            var response = await httpClient.GetAsync("api/events/test");
+            
+            if (response.IsSuccessStatusCode)
+            {
+                resultMessage = "✅ Test event sent successfully! Check your backend logs for confirmation.";
+                
+                eventHistory.Insert(0, new EventHistoryItem
+                {
+                    CommunicationId = "1",
+                    NewStatus = "Printed",
+                    Notes = "Quick test event",
+                    Timestamp = DateTime.Now,
+                    Success = true
+                });
+            }
+            else
+            {
+                isError = true;
+                resultMessage = $"❌ Test failed: {response.StatusCode}";
+            }
+        }
+        catch (Exception ex)
+        {
+            isError = true;
+            resultMessage = $"❌ Error: {ex.Message}";
+            Logger.LogError(ex, "Error sending test event");
+        }
+        finally
+        {
+            isProcessing = false;
+            StateHasChanged();
+        }
+    }
+    
+    private Color GetEventColor(string eventName)
+    {
+        return eventName.ToLower() switch
+        {
+            var e when e.Contains("created") || e.Contains("requested") => Color.Info,
+            var e when e.Contains("approved") || e.Contains("released") => Color.Warning,
+            var e when e.Contains("printed") || e.Contains("queued") => Color.Primary,
+            var e when e.Contains("shipped") => Color.Secondary,
+            var e when e.Contains("delivered") => Color.Success,
+            var e when e.Contains("failed") => Color.Error,
+            _ => Color.Default
+        };
+    }
+    
+    // Helper classes
+    private record EventOption(string EventName, string ResultingStatus);
+    
+    private class EventHistoryItem
+    {
+        public string CommunicationId { get; set; } = "";
+        public string CommunicationSubject { get; set; } = "";
+        public string EventName { get; set; } = "";
+        public string NewStatus { get; set; } = "";
+        public string? Notes { get; set; }
+        public DateTime Timestamp { get; set; }
+        public bool Success { get; set; }
+    }
+}

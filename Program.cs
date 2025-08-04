@@ -10,7 +10,23 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
+    .AddInteractiveServerComponents()
+    .AddHubOptions(options =>
+    {
+        if (builder.Environment.IsDevelopment())
+        {
+            options.MaximumReceiveMessageSize = 10 * 1024 * 1024; // 10MB
+        }
+    });
+
+// Configure circuit options for better error messages in development
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddServerSideBlazor(options =>
+    {
+        options.DetailedErrors = true;
+    });
+}
 
 // Add MudBlazor services
 builder.Services.AddMudServices();
@@ -28,14 +44,14 @@ builder.Services.AddHttpClient("API", client =>
 .ConfigurePrimaryHttpMessageHandler(() =>
 {
     var handler = new HttpClientHandler();
-    
+
     // Only bypass SSL validation in development
     if (builder.Environment.IsDevelopment())
     {
-        handler.ServerCertificateCustomValidationCallback = 
+        handler.ServerCertificateCustomValidationCallback =
             HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
     }
-    
+
     return handler;
 });
 
@@ -65,6 +81,7 @@ builder.Services.AddAuthentication(options =>
 
 // Add API service
 // builder.Services.AddScoped<ApiService>();
+// builder.Services.AddScoped<ICommunicationTypeService, CommunicationTypeService>();
 
 var app = builder.Build();
 

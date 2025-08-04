@@ -208,7 +208,6 @@
             communications = null;
             StateHasChanged();
 
-            // Call the real API
             var httpClient = HttpClientFactory.CreateClient("API");
             communications = await httpClient.GetFromJsonAsync<IEnumerable<CommunicationResponse>>("api/communications");
 
