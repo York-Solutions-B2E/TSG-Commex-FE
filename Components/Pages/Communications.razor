@@ -2,13 +2,13 @@
 @rendermode InteractiveServer
 @inject IHttpClientFactory HttpClientFactory
 @inject ILogger<Communications> Logger
+@inject NavigationManager Navigation
 
 <PageTitle>Communications</PageTitle>
 
 <h3>Communications Management</h3>
 <AuthorizeView>
     <Authorized>
-
         @if (communications == null)
         {
             <MudProgressCircular Indeterminate="true" />
@@ -71,94 +71,12 @@
                         <MudText Typo="Typo.caption">by @communication.CreatedByUserName</MudText>
                     </MudTd>
                     <MudTd DataLabel="" Class="pa-3">
-                        <MudButton Variant="Variant.Text" 
-                                   Size="Size.Small" 
-                                   Color="Color.Primary"
-                                   StartIcon="@Icons.Material.Filled.ExpandMore"
-                                   OnClick="@(() => ShowStatusHistory(communication.Id))"
-                                   Style="@(expandedCommunicationHistory.Contains(communication.Id) ? "transform: rotate(180deg);" : "")">
-                            @(expandedCommunicationHistory.Contains(communication.Id) ? "Hide" : "Details")
+                        <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Primary"
+                            OnClick="@(() => ViewDetails(communication.Id))">
+                            Details
                         </MudButton>
                     </MudTd>
                 </RowTemplate>
-                <ChildRowContent Context="communication">
-                    @if (expandedCommunicationHistory.Contains(communication.Id))
-                    {
-                        <MudTr>
-                            <td colspan="7">
-                                <MudCard Elevation="0" Class="ma-2">
-                                    <MudCardHeader>
-                                        <CardHeaderContent>
-                                            <MudText Typo="Typo.h6">📋 Status History for <strong>@communication.Subject</strong></MudText>
-                                        </CardHeaderContent>
-                                    </MudCardHeader>
-                                    <MudCardContent>
-                                        @if (loadingStatusHistory.Contains(communication.Id))
-                                        {
-                                            <MudProgressCircular Indeterminate="true" Size="Size.Small" />
-                                            <MudText Class="ml-2">Loading status history...</MudText>
-                                        }
-                                        else if (communicationStatusHistory.ContainsKey(communication.Id))
-                                        {
-                                            var statusHistory = communicationStatusHistory[communication.Id];
-                                            @if (statusHistory.Any())
-                                            {
-                                                <MudTable Items="@statusHistory" Dense="true" Hover="true" Elevation="0">
-                                                    <HeaderContent>
-                                                        <MudTh>Status</MudTh>
-                                                        <MudTh>Occurred</MudTh>
-                                                        <MudTh>Source</MudTh>
-                                                        <MudTh>Notes</MudTh>
-                                                        <MudTh>Updated By</MudTh>
-                                                    </HeaderContent>
-                                                    <RowTemplate Context="status">
-                                                        <MudTd DataLabel="Status">
-                                                            <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(status.StatusCode)">
-                                                                @status.StatusCode
-                                                            </MudChip>
-                                                        </MudTd>
-                                                        <MudTd DataLabel="Occurred">
-                                                            <MudText Typo="Typo.body2">@status.OccurredUtc.ToString("MM/dd/yyyy hh:mm tt")</MudText>
-                                                        </MudTd>
-                                                        <MudTd DataLabel="Source">
-                                                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">
-                                                                @(status.EventSource ?? "Manual")
-                                                            </MudChip>
-                                                        </MudTd>
-                                                        <MudTd DataLabel="Notes">
-                                                            @(status.Notes ?? "-")
-                                                        </MudTd>
-                                                        <MudTd DataLabel="Updated By">
-                                                            @(status.UpdatedByUserName ?? "System")
-                                                        </MudTd>
-                                                    </RowTemplate>
-                                                </MudTable>
-
-                                                <MudDivider Class="my-3" />
-                                                <MudText Typo="Typo.subtitle2" Color="Color.Primary">
-                                                    <strong>@statusHistory.Count() status change@(statusHistory.Count() == 1 ? "" : "s")</strong>
-                                                    • Latest: @statusHistory.OrderByDescending(s => s.OccurredUtc).First().StatusCode
-                                                </MudText>
-                                            }
-                                            else
-                                            {
-                                                <MudAlert Severity="Severity.Info" Dense="true">
-                                                    No status history found for this communication.
-                                                </MudAlert>
-                                            }
-                                        }
-                                        else if (statusHistoryErrors.ContainsKey(communication.Id))
-                                        {
-                                            <MudAlert Severity="Severity.Error" Dense="true">
-                                                Error loading status history: @statusHistoryErrors[communication.Id]
-                                            </MudAlert>
-                                        }
-                                    </MudCardContent>
-                                </MudCard>
-                            </td>
-                        </MudTr>
-                    }
-                </ChildRowContent>
             </MudTable>
         }
 
@@ -171,12 +89,8 @@
 </AuthorizeView>
 
 @code {
-    private IEnumerable<CommunicationResponseDto>? communications;
+    private IEnumerable<CommunicationResponse>? communications;
     private string? errorMessage;
-    private HashSet<int> expandedCommunicationHistory = new HashSet<int>();
-    private Dictionary<int, IEnumerable<CommunicationStatusHistoryDto>> communicationStatusHistory = new Dictionary<int, IEnumerable<CommunicationStatusHistoryDto>>();
-    private Dictionary<int, string> statusHistoryErrors = new Dictionary<int, string>();
-    private HashSet<int> loadingStatusHistory = new HashSet<int>();
 
     protected override async Task OnInitializedAsync()
     {
@@ -191,14 +105,9 @@
             communications = null;
             StateHasChanged();
 
-            // For now, use mock data since backend isn't fully implemented
-            // TODO: Replace with actual API call when backend is ready
-            // var httpClient = HttpClientFactory.CreateClient("API");
-            // communications = await httpClient.GetFromJsonAsync<IEnumerable<CommunicationResponseDto>>("communications");
-
-            // Mock data that matches your backend DTOs
-            await Task.Delay(500); // Simulate network delay
-            communications = GenerateMockCommunications();
+            // Call the real API
+            var httpClient = HttpClientFactory.CreateClient("API");
+            communications = await httpClient.GetFromJsonAsync<IEnumerable<CommunicationResponse>>("api/communications");
 
             Logger.LogInformation("✅ Successfully loaded {Count} communications", communications?.Count() ?? 0);
         }
@@ -213,55 +122,11 @@
         }
     }
 
-    private async Task LoadStatusHistoryForCommunication(int communicationId)
+
+
+    private void ViewDetails(int communicationId)
     {
-        try
-        {
-            loadingStatusHistory.Add(communicationId);
-            statusHistoryErrors.Remove(communicationId);
-            StateHasChanged();
-
-            Logger.LogInformation("📋 Loading status history for communication {CommunicationId}", communicationId);
-
-            // For now, use mock data since backend isn't fully implemented
-            // TODO: Replace with actual API call when backend is ready
-            // var httpClient = HttpClientFactory.CreateClient("API");
-            // var statusHistory = await httpClient.GetFromJsonAsync<IEnumerable<CommunicationStatusHistoryDto>>($"communications/{communicationId}/status-history");
-
-            await Task.Delay(300); // Simulate network delay
-            var statusHistory = GenerateMockStatusHistory(communicationId);
-            communicationStatusHistory[communicationId] = statusHistory;
-
-            Logger.LogInformation("✅ Successfully loaded {Count} status changes for communication {CommunicationId}", 
-                statusHistory?.Count() ?? 0, communicationId);
-        }
-        catch (Exception ex)
-        {
-            statusHistoryErrors[communicationId] = ex.Message;
-            Logger.LogError(ex, "❌ Error loading status history for communication {CommunicationId}", communicationId);
-        }
-        finally
-        {
-            loadingStatusHistory.Remove(communicationId);
-            StateHasChanged();
-        }
-    }
-
-    private async Task ShowStatusHistory(int communicationId)
-    {
-        if (expandedCommunicationHistory.Contains(communicationId))
-        {
-            expandedCommunicationHistory.Remove(communicationId);
-        }
-        else
-        {
-            expandedCommunicationHistory.Add(communicationId);
-            // Load status history when expanding if not already loaded
-            if (!communicationStatusHistory.ContainsKey(communicationId) && !loadingStatusHistory.Contains(communicationId))
-            {
-                await LoadStatusHistoryForCommunication(communicationId);
-            }
-        }
+        Navigation.NavigateTo($"/communications/{communicationId}");
     }
 
     private Color GetStatusColor(string status)
@@ -291,165 +156,4 @@
         };
     }
 
-    // Mock data generation methods - Remove when backend is implemented
-    private IEnumerable<CommunicationResponseDto> GenerateMockCommunications()
-    {
-        return new List<CommunicationResponseDto>
-        {
-            new CommunicationResponseDto
-            {
-                Id = 1,
-                TypeCode = "EOB",
-                Subject = "John Doe - EOB Q3 2024",
-                Message = "Explanation of Benefits for Q3 2024 insurance coverage",
-                CurrentStatus = "Delivered",
-                RecipientInfo = "john.doe@email.com",
-                CreatedUtc = DateTime.UtcNow.AddDays(-5),
-                LastUpdatedUtc = DateTime.UtcNow.AddDays(-3),
-                CreatedByUserName = "system"
-            },
-            new CommunicationResponseDto
-            {
-                Id = 2,
-                TypeCode = "SMS",
-                Subject = "Account Verification",
-                Message = "Please verify your account by clicking the link",
-                CurrentStatus = "Pending",
-                RecipientInfo = "+1-555-0123",
-                CreatedUtc = DateTime.UtcNow.AddDays(-3),
-                LastUpdatedUtc = DateTime.UtcNow.AddDays(-3),
-                CreatedByUserName = "admin"
-            },
-            new CommunicationResponseDto
-            {
-                Id = 3,
-                TypeCode = "EOP",
-                Subject = "Jane Smith - EOP Annual Summary",
-                Message = "Annual summary of health plan benefits and usage",
-                CurrentStatus = "Processing",
-                RecipientInfo = "jane.smith@email.com",
-                CreatedUtc = DateTime.UtcNow.AddDays(-2),
-                LastUpdatedUtc = DateTime.UtcNow.AddDays(-1),
-                CreatedByUserName = "workflow_engine"
-            },
-            new CommunicationResponseDto
-            {
-                Id = 4,
-                TypeCode = "ID_CARD",
-                Subject = "New Member ID Card - Mike Johnson",
-                Message = "Digital ID card for new member enrollment",
-                CurrentStatus = "Draft",
-                RecipientInfo = "mike.johnson@email.com",
-                CreatedUtc = DateTime.UtcNow.AddDays(-1),
-                LastUpdatedUtc = DateTime.UtcNow.AddDays(-1),
-                CreatedByUserName = "enrollment_system"
-            },
-            new CommunicationResponseDto
-            {
-                Id = 5,
-                TypeCode = "Push",
-                Subject = "Appointment Reminder",
-                Message = "Don't forget your appointment tomorrow at 2PM",
-                CurrentStatus = "Failed",
-                RecipientInfo = "Device Token: abc123...",
-                CreatedUtc = DateTime.UtcNow,
-                LastUpdatedUtc = DateTime.UtcNow,
-                CreatedByUserName = "reminder_service"
-            }
-        };
-    }
-
-    private IEnumerable<CommunicationStatusHistoryDto> GenerateMockStatusHistory(int communicationId)
-    {
-        var statuses = new List<CommunicationStatusHistoryDto>();
-        var baseDate = DateTime.UtcNow.AddDays(-communicationId);
-
-        // Create a realistic status progression
-        statuses.Add(new CommunicationStatusHistoryDto
-        {
-            Id = communicationId * 10 + 1,
-            CommunicationId = communicationId,
-            StatusCode = "Created",
-            OccurredUtc = baseDate,
-            Notes = "Communication created via system",
-            EventSource = "System",
-            UpdatedByUserName = "system"
-        });
-
-        statuses.Add(new CommunicationStatusHistoryDto
-        {
-            Id = communicationId * 10 + 2,
-            CommunicationId = communicationId,
-            StatusCode = "Queued",
-            OccurredUtc = baseDate.AddMinutes(5),
-            Notes = "Added to processing queue",
-            EventSource = "Workflow",
-            UpdatedByUserName = "workflow_engine"
-        });
-
-        if (communicationId % 5 != 0) // Don't fail the 5th communication
-        {
-            statuses.Add(new CommunicationStatusHistoryDto
-            {
-                Id = communicationId * 10 + 3,
-                CommunicationId = communicationId,
-                StatusCode = "Processing",
-                OccurredUtc = baseDate.AddMinutes(15),
-                Notes = "Started processing communication",
-                EventSource = "RabbitMQ",
-                UpdatedByUserName = "message_processor"
-            });
-
-            statuses.Add(new CommunicationStatusHistoryDto
-            {
-                Id = communicationId * 10 + 4,
-                CommunicationId = communicationId,
-                StatusCode = communicationId == 4 ? "Draft" : "Delivered",
-                OccurredUtc = baseDate.AddHours(1),
-                Notes = communicationId == 4 ? "Saved as draft for review" : "Successfully delivered to recipient",
-                EventSource = communicationId == 4 ? "Manual" : "Delivery_Service",
-                UpdatedByUserName = communicationId == 4 ? "admin" : "delivery_agent"
-            });
-        }
-        else
-        {
-            statuses.Add(new CommunicationStatusHistoryDto
-            {
-                Id = communicationId * 10 + 3,
-                CommunicationId = communicationId,
-                StatusCode = "Failed",
-                OccurredUtc = baseDate.AddMinutes(15),
-                Notes = "Delivery failed - invalid recipient address",
-                EventSource = "Delivery_Service",
-                UpdatedByUserName = "delivery_agent"
-            });
-        }
-
-        return statuses.OrderBy(s => s.OccurredUtc);
-    }
-
-    // DTOs that match your backend structure
-    public class CommunicationResponseDto
-    {
-        public int Id { get; set; }
-        public string TypeCode { get; set; } = string.Empty;
-        public string Subject { get; set; } = string.Empty;
-        public string? Message { get; set; }
-        public string CurrentStatus { get; set; } = string.Empty;
-        public string RecipientInfo { get; set; } = string.Empty;
-        public DateTime CreatedUtc { get; set; }
-        public DateTime LastUpdatedUtc { get; set; }
-        public string CreatedByUserName { get; set; } = string.Empty;
-    }
-
-    public class CommunicationStatusHistoryDto
-    {
-        public int Id { get; set; }
-        public int CommunicationId { get; set; }
-        public string StatusCode { get; set; } = string.Empty;
-        public DateTime OccurredUtc { get; set; }
-        public string? Notes { get; set; }
-        public string? EventSource { get; set; }
-        public string? UpdatedByUserName { get; set; }
-    }
 }

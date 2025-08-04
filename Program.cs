@@ -24,6 +24,19 @@ builder.Services.AddControllers();
 builder.Services.AddHttpClient("API", client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["Api:BaseUrl"]!);
+})
+.ConfigurePrimaryHttpMessageHandler(() =>
+{
+    var handler = new HttpClientHandler();
+    
+    // Only bypass SSL validation in development
+    if (builder.Environment.IsDevelopment())
+    {
+        handler.ServerCertificateCustomValidationCallback = 
+            HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+    }
+    
+    return handler;
 });
 
 // Configure application cookies

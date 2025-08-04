@@ -1,0 +1,402 @@
+@page "/communications/{Id:int}"
+@rendermode InteractiveServer
+@inject IHttpClientFactory HttpClientFactory
+@inject ILogger<CommunicationDetails> Logger
+@inject NavigationManager Navigation
+
+<PageTitle>Communication Details</PageTitle>
+
+<div class="d-flex align-center mb-4">
+    <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="@(() => Navigation.NavigateTo("/communications"))"
+        Class="mr-3">
+        Back to Communications
+    </MudButton>
+    <MudText Typo="Typo.h4">Communication Details</MudText>
+</div>
+
+<AuthorizeView>
+    <Authorized>
+        @if (communication == null)
+        {
+            <MudProgressCircular Indeterminate="true" />
+            <MudText Class="ml-2">Loading communication details...</MudText>
+        }
+        else if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <MudAlert Severity="Severity.Error" Class="mb-4">
+                Error: @errorMessage
+                <MudButton OnClick="@LoadCommunication" Variant="Variant.Text" Size="Size.Small" Class="ml-2">
+                    Retry
+                </MudButton>
+            </MudAlert>
+        }
+        else
+        {
+            <MudGrid>
+                <MudItem xs="12" md="8">
+                    <MudPaper Elevation="2" Class="pa-4 mb-4">
+                        <MudText Typo="Typo.h5" Class="mb-3">@communication.Subject</MudText>
+
+                        @if (!string.IsNullOrEmpty(communication.Message))
+                        {
+                            <MudText Typo="Typo.body1" Class="mb-4">@communication.Message</MudText>
+                        }
+
+                        <MudGrid>
+                            <MudItem xs="6" sm="3">
+                                <MudText Typo="Typo.caption" Class="text-uppercase">ID</MudText>
+                                <MudText Typo="Typo.body2">@communication.Id</MudText>
+                            </MudItem>
+                            <MudItem xs="6" sm="3">
+                                <MudText Typo="Typo.caption" Class="text-uppercase">Type</MudText>
+                                <MudChip T="string" Size="Size.Small" Color="@GetTypeColor(communication.TypeCode)"
+                                    Class="mt-1">
+                                    @communication.TypeCode
+                                </MudChip>
+                            </MudItem>
+                            <MudItem xs="6" sm="3">
+                                <MudText Typo="Typo.caption" Class="text-uppercase">Status</MudText>
+                                <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(communication.CurrentStatus)"
+                                    Class="mt-1">
+                                    @communication.CurrentStatus
+                                </MudChip>
+                            </MudItem>
+                            <MudItem xs="6" sm="3">
+                                <MudText Typo="Typo.caption" Class="text-uppercase">Recipient</MudText>
+                                <MudText Typo="Typo.body2">@communication.RecipientInfo</MudText>
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudText Typo="Typo.caption" Class="text-uppercase">Created</MudText>
+                                <MudText Typo="Typo.body2">@communication.CreatedUtc.ToString("MM/dd/yyyy hh:mm tt")
+                                </MudText>
+                                <MudText Typo="Typo.caption">by @communication.CreatedByUserName</MudText>
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudText Typo="Typo.caption" Class="text-uppercase">Last Updated</MudText>
+                                <MudText Typo="Typo.body2">@communication.LastUpdatedUtc.ToString("MM/dd/yyyy hh:mm tt")
+                                </MudText>
+                            </MudItem>
+                        </MudGrid>
+                    </MudPaper>
+
+                    <MudPaper Elevation="2" Class="pa-4">
+                        <MudText Typo="Typo.h6" Class="mb-3">📋 Status History</MudText>
+
+                        @if (loadingStatusHistory)
+                        {
+                            <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+                            <MudText Class="ml-2">Loading status history...</MudText>
+                        }
+                        else if (statusHistory != null && statusHistory.Any())
+                        {
+                            <MudTable Items="@statusHistory" Dense="true" Hover="true" Elevation="0">
+                                <HeaderContent>
+                                    <MudTh>Status</MudTh>
+                                    <MudTh>Occurred</MudTh>
+                                    <MudTh>Source</MudTh>
+                                    <MudTh>Notes</MudTh>
+                                    <MudTh>Updated By</MudTh>
+                                </HeaderContent>
+                                <RowTemplate Context="status">
+                                    <MudTd DataLabel="Status">
+                                        <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(status.StatusCode)">
+                                            @status.StatusCode
+                                        </MudChip>
+                                    </MudTd>
+                                    <MudTd DataLabel="Occurred">
+                                        <MudText Typo="Typo.body2">@status.OccurredUtc.ToString("MM/dd/yyyy hh:mm tt")</MudText>
+                                    </MudTd>
+                                    <MudTd DataLabel="Source">
+                                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">
+                                            @(status.EventSource ?? "Manual")
+                                        </MudChip>
+                                    </MudTd>
+                                    <MudTd DataLabel="Notes">
+                                        @(status.Notes ?? "-")
+                                    </MudTd>
+                                    <MudTd DataLabel="Updated By">
+                                        @(status.UpdatedByUserName ?? "System")
+                                    </MudTd>
+                                </RowTemplate>
+                            </MudTable>
+
+                            <MudText Typo="Typo.caption" Color="Color.Primary" Class="mt-3">
+                                <strong>@statusHistory.Count() status change@(statusHistory.Count() == 1 ? "" : "s")</strong>
+                                • Latest: @statusHistory.OrderByDescending(s => s.OccurredUtc).First().StatusCode
+                            </MudText>
+                        }
+                        else if (!string.IsNullOrEmpty(statusHistoryError))
+                        {
+                            <MudAlert Severity="Severity.Error" Dense="true">
+                                Error loading status history: @statusHistoryError
+                            </MudAlert>
+                        }
+                        else
+                        {
+                            <MudAlert Severity="Severity.Info" Dense="true">
+                                No status history found for this communication.
+                            </MudAlert>
+                        }
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        }
+    </Authorized>
+    <NotAuthorized>
+        <MudAlert Severity="Severity.Warning" Class="mt-4">
+            You must sign in to view communication details.
+        </MudAlert>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private CommunicationResponse? communication;
+    private IEnumerable<CommunicationStatusHistory>? statusHistory;
+    private string? errorMessage;
+    private string? statusHistoryError;
+    private bool loadingStatusHistory = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCommunication();
+    }
+
+    private async Task LoadCommunication()
+    {
+        try
+        {
+            errorMessage = null;
+            communication = null;
+            StateHasChanged();
+
+            Logger.LogInformation("📋 Loading communication {CommunicationId}", Id);
+
+            // For now, use mock data since backend isn't fully implemented
+            // TODO: Replace with actual API call when backend is ready
+            // var httpClient = HttpClientFactory.CreateClient("API");
+            // communication = await httpClient.GetFromJsonAsync<CommunicationResponse>($"communications/{Id}");
+
+            await Task.Delay(300); // Simulate network delay
+            communication = GenerateMockCommunications().FirstOrDefault(c => c.Id == Id);
+
+            if (communication == null)
+            {
+                errorMessage = "Communication not found";
+                return;
+            }
+
+            Logger.LogInformation("✅ Successfully loaded communication {CommunicationId}", Id);
+
+            // Load status history
+            await LoadStatusHistory();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+            Logger.LogError(ex, "❌ Error loading communication {CommunicationId}", Id);
+        }
+        finally
+        {
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadStatusHistory()
+    {
+        try
+        {
+            loadingStatusHistory = true;
+            statusHistoryError = null;
+            StateHasChanged();
+
+            Logger.LogInformation("📋 Loading status history for communication {CommunicationId}", Id);
+
+            // For now, use mock data since backend isn't fully implemented
+            // TODO: Replace with actual API call when backend is ready
+            // var httpClient = HttpClientFactory.CreateClient("API");
+            // statusHistory = await httpClient.GetFromJsonAsync<IEnumerable<CommunicationStatusHistory>>($"communications/{Id}/status-history");
+
+            await Task.Delay(300); // Simulate network delay
+            statusHistory = GenerateMockStatusHistory(Id);
+
+            Logger.LogInformation("✅ Successfully loaded {Count} status changes for communication {CommunicationId}",
+            statusHistory?.Count() ?? 0, Id);
+        }
+        catch (Exception ex)
+        {
+            statusHistoryError = ex.Message;
+            Logger.LogError(ex, "❌ Error loading status history for communication {CommunicationId}", Id);
+        }
+        finally
+        {
+            loadingStatusHistory = false;
+            StateHasChanged();
+        }
+    }
+
+    private Color GetStatusColor(string status)
+    {
+        return status.ToLower() switch
+        {
+            "draft" or "created" => Color.Info,
+            "queued" or "pending" => Color.Warning,
+            "processing" or "in_transit" => Color.Primary,
+            "sent" or "delivered" => Color.Success,
+            "failed" or "error" => Color.Error,
+            "cancelled" => Color.Secondary,
+            _ => Color.Default
+        };
+    }
+
+    private Color GetTypeColor(string typeCode)
+    {
+        return typeCode.ToLower() switch
+        {
+            "email" or "eob" => Color.Primary,
+            "sms" or "text" => Color.Success,
+            "push" => Color.Info,
+            "eop" => Color.Warning,
+            "id_card" => Color.Secondary,
+            _ => Color.Default
+        };
+    }
+
+    // Mock data generation methods - Remove when backend is implemented
+    private IEnumerable<CommunicationResponse> GenerateMockCommunications()
+    {
+        return new List<CommunicationResponse>
+{
+new CommunicationResponse
+{
+Id = 1,
+TypeCode = "EOB",
+Subject = "John Doe - EOB Q3 2024",
+Message = "Explanation of Benefits for Q3 2024 insurance coverage",
+CurrentStatus = "Delivered",
+RecipientInfo = "john.doe@email.com",
+CreatedUtc = DateTime.UtcNow.AddDays(-5),
+LastUpdatedUtc = DateTime.UtcNow.AddDays(-3),
+CreatedByUserName = "system"
+},
+new CommunicationResponse
+{
+Id = 2,
+TypeCode = "SMS",
+Subject = "Account Verification",
+Message = "Please verify your account by clicking the link",
+CurrentStatus = "Pending",
+RecipientInfo = "+1-555-0123",
+CreatedUtc = DateTime.UtcNow.AddDays(-3),
+LastUpdatedUtc = DateTime.UtcNow.AddDays(-3),
+CreatedByUserName = "admin"
+},
+new CommunicationResponse
+{
+Id = 3,
+TypeCode = "EOP",
+Subject = "Jane Smith - EOP Annual Summary",
+Message = "Annual summary of health plan benefits and usage",
+CurrentStatus = "Processing",
+RecipientInfo = "jane.smith@email.com",
+CreatedUtc = DateTime.UtcNow.AddDays(-2),
+LastUpdatedUtc = DateTime.UtcNow.AddDays(-1),
+CreatedByUserName = "workflow_engine"
+},
+new CommunicationResponse
+{
+Id = 4,
+TypeCode = "ID_CARD",
+Subject = "New Member ID Card - Mike Johnson",
+Message = "Digital ID card for new member enrollment",
+CurrentStatus = "Draft",
+RecipientInfo = "mike.johnson@email.com",
+CreatedUtc = DateTime.UtcNow.AddDays(-1),
+LastUpdatedUtc = DateTime.UtcNow.AddDays(-1),
+CreatedByUserName = "enrollment_system"
+},
+new CommunicationResponse
+{
+Id = 5,
+TypeCode = "Push",
+Subject = "Appointment Reminder",
+Message = "Don't forget your appointment tomorrow at 2PM",
+CurrentStatus = "Failed",
+RecipientInfo = "Device Token: abc123...",
+CreatedUtc = DateTime.UtcNow,
+LastUpdatedUtc = DateTime.UtcNow,
+CreatedByUserName = "reminder_service"
+}
+};
+    }
+
+    private IEnumerable<CommunicationStatusHistory> GenerateMockStatusHistory(int communicationId)
+    {
+        var statuses = new List<CommunicationStatusHistory>();
+        var baseDate = DateTime.UtcNow.AddDays(-communicationId);
+
+        // Create a realistic status progression
+        statuses.Add(new CommunicationStatusHistory
+        {
+            Id = communicationId * 10 + 1,
+            CommunicationId = communicationId,
+            StatusCode = "Created",
+            OccurredUtc = baseDate,
+            Notes = "Communication created via system",
+            EventSource = "System",
+            UpdatedByUserName = "system"
+        });
+
+        statuses.Add(new CommunicationStatusHistory
+        {
+            Id = communicationId * 10 + 2,
+            CommunicationId = communicationId,
+            StatusCode = "Queued",
+            OccurredUtc = baseDate.AddMinutes(5),
+            Notes = "Added to processing queue",
+            EventSource = "Workflow",
+            UpdatedByUserName = "workflow_engine"
+        });
+
+        if (communicationId % 5 != 0) // Don't fail the 5th communication
+        {
+            statuses.Add(new CommunicationStatusHistory
+            {
+                Id = communicationId * 10 + 3,
+                CommunicationId = communicationId,
+                StatusCode = "Processing",
+                OccurredUtc = baseDate.AddMinutes(15),
+                Notes = "Started processing communication",
+                EventSource = "RabbitMQ",
+                UpdatedByUserName = "message_processor"
+            });
+
+            statuses.Add(new CommunicationStatusHistory
+            {
+                Id = communicationId * 10 + 4,
+                CommunicationId = communicationId,
+                StatusCode = communicationId == 4 ? "Draft" : "Delivered",
+                OccurredUtc = baseDate.AddHours(1),
+                Notes = communicationId == 4 ? "Saved as draft for review" : "Successfully delivered to recipient",
+                EventSource = communicationId == 4 ? "Manual" : "Delivery_Service",
+                UpdatedByUserName = communicationId == 4 ? "admin" : "delivery_agent"
+            });
+        }
+        else
+        {
+            statuses.Add(new CommunicationStatusHistory
+            {
+                Id = communicationId * 10 + 3,
+                CommunicationId = communicationId,
+                StatusCode = "Failed",
+                OccurredUtc = baseDate.AddMinutes(15),
+                Notes = "Delivery failed - invalid recipient address",
+                EventSource = "Delivery_Service",
+                UpdatedByUserName = "delivery_agent"
+            });
+        }
+
+        return statuses.OrderBy(s => s.OccurredUtc);
+    }
+}
