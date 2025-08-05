@@ -7,8 +7,6 @@
 <PageTitle>Communications</PageTitle>
 
 <h3>Communications Management</h3>
-<AuthorizeView>
-    <Authorized>
         @if (communications == null)
         {
             <MudProgressCircular Indeterminate="true" />
@@ -184,14 +182,6 @@
                 }
             </MudGrid>
         }
-
-    </Authorized>
-    <NotAuthorized>
-        <MudAlert Severity="Severity.Warning" Class="mt-4">
-            You must sign in to view communications.
-        </MudAlert>
-    </NotAuthorized>
-</AuthorizeView>
 
 @code {
     private IEnumerable<CommunicationResponse>? communications;

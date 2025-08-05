@@ -13,8 +13,6 @@
 <MudText Typo="Typo.h3" Class="mb-2">🛰️ Event Simulator</MudText>
 <MudText Typo="Typo.subtitle1" Class="mb-4">Simulate communication status changes in real-time</MudText>
 
-<AuthorizeView>
-    <Authorized>
         <MudGrid>
             <MudItem xs="12" md="6">
                 <MudPaper Elevation="2" Class="pa-4">
@@ -148,17 +146,6 @@
                 Send Test Event
             </MudButton>
         </MudPaper>
-    </Authorized>
-    <NotAuthorized>
-        <MudAlert Severity="Severity.Warning" Class="mt-4">
-            <MudText Typo="Typo.h6" Class="mb-2">🔐 Authentication Required</MudText>
-            <MudText Class="mb-3">You need to log in to access the Event Simulator.</MudText>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/Auth/SignIn">
-                Login with Okta
-            </MudButton>
-        </MudAlert>
-    </NotAuthorized>
-</AuthorizeView>
 
 @code {
     private MudForm form = null!;
