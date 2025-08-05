@@ -23,11 +23,11 @@
                     <MudForm @ref="form" @bind-IsValid="@success">
                         
                         <MudSelect T="CommunicationResponse" Label="Select Communication" Required="true" 
-                            @bind-Value="selectedCommunication" 
+                            Value="selectedCommunication"
+                            ValueChanged="@(async (CommunicationResponse c) => await OnCommunicationSelected(c))"
                             RequiredError="Please select a communication!"
                             Variant="Variant.Outlined" Class="mb-3"
-                            ToStringFunc="@(c => c == null ? "" : $"#{c.Id} - {c.Subject}")"
-                            ValueChanged="@(async (CommunicationResponse c) => await OnCommunicationSelected(c))">
+                            ToStringFunc="@(c => c == null ? "" : $"#{c.Id} - {c.Subject}")">
                             @if (availableCommunications == null)
                             {
                                 <MudSelectItem Value="@((CommunicationResponse?)null)" Disabled="true">
@@ -325,6 +325,9 @@
                     Success = true
                 });
                 
+                // Log before clearing
+                Logger.LogInformation("Successfully sent event {Event} for communication {CommunicationId}", selectedEvent, selectedCommunication.Id);
+                
                 // Clear form
                 selectedCommunication = null;
                 selectedEvent = "";
@@ -333,8 +336,6 @@
                 
                 // Reload communications to reflect changes
                 await LoadCommunications();
-                
-                Logger.LogInformation("Successfully sent event {Event} for communication {CommunicationId}", selectedEvent, selectedCommunication?.Id);
             }
             else
             {

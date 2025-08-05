@@ -1,8 +1,10 @@
-html, body {
+html,
+body {
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
 
-a, .btn-link {
+a,
+.btn-link {
     color: #006bb7;
 }
 
@@ -12,8 +14,12 @@ a, .btn-link {
     border-color: #1861ac;
 }
 
-.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+.btn:focus,
+.btn:active:focus,
+.btn-link.nav-link:focus,
+.form-control:focus,
+.form-check-input:focus {
+    box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
 }
 
 .content {
@@ -42,10 +48,185 @@ h1:focus {
     color: white;
 }
 
-    .blazor-error-boundary::after {
-        content: "An error has occurred."
-    }
+.blazor-error-boundary::after {
+    content: "An error has occurred."
+}
 
 .darker-border-checkbox.form-check-input {
     border-color: #929292;
+}
+
+/* Admin Page Styles - Anthropic Inspired */
+.admin-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 1rem;
+}
+
+.admin-hero {
+    padding: 4rem 0 6rem 0;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border-radius: 0 0 2rem 2rem;
+    margin: -1.1rem -1rem 3rem -1rem;
+}
+
+.admin-hero-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4rem;
+    align-items: center;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+}
+
+.admin-hero-text {
+    max-width: 500px;
+}
+
+.admin-title {
+    font-size: 3.5rem;
+    font-weight: 600;
+    line-height: 1.1;
+    margin-bottom: 1.5rem;
+    color: #1e293b;
+    letter-spacing: -0.02em;
+}
+
+.admin-subtitle {
+    font-size: 1.25rem;
+    line-height: 1.6;
+    color: #64748b;
+    margin-bottom: 2rem;
+    font-weight: 400;
+}
+
+.admin-search {
+    margin-top: 2rem;
+}
+
+.admin-search-field {
+    background: white;
+    border-radius: 0.75rem;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+}
+
+.admin-hero-graphic {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.admin-graphic {
+    width: 100%;
+    max-width: 400px;
+    height: 300px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.admin-illustration {
+    width: 100%;
+    height: 100%;
+    filter: drop-shadow(0 20px 25px rgb(0 0 0 / 0.15));
+}
+
+.admin-platform {
+    padding: 2rem 0;
+}
+
+.admin-platform-title {
+    font-size: 2.5rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 3rem;
+    text-align: left;
+}
+
+.admin-features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 2rem;
+    margin-top: 2rem;
+}
+
+.admin-feature-card {
+    border-radius: 1rem;
+    transition: all 0.3s ease;
+    border: 1px solid #e2e8f0;
+    overflow: hidden;
+}
+
+.admin-feature-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 10px 10px -5px rgb(0 0 0 / 0.04);
+}
+
+.admin-feature-content {
+    padding: 2rem;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.admin-feature-icon {
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+}
+
+.admin-feature-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 1rem;
+    line-height: 1.3;
+}
+
+.admin-feature-description {
+    color: #64748b;
+    line-height: 1.6;
+    margin-bottom: 1.5rem;
+    flex-grow: 1;
+    font-size: 0.95rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .admin-hero-content {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+        text-align: center;
+    }
+
+    .admin-title {
+        font-size: 2.5rem;
+    }
+
+    .admin-subtitle {
+        font-size: 1.1rem;
+    }
+
+    .admin-features-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-hero {
+        padding: 2rem 0 3rem 0;
+    }
+}
+
+/* MudBlazor Overrides for Admin */
+.admin-search-field .mud-input-root {
+    border-radius: 0.75rem !important;
+}
+
+.admin-search-field .mud-input-outlined {
+    border-color: #e2e8f0 !important;
+}
+
+.admin-search-field .mud-input-outlined:hover {
+    border-color: #3b82f6 !important;
 }
