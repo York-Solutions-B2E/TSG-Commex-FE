@@ -1,0 +1,266 @@
+@page "/admin/status-taxonomy"
+@using Microsoft.AspNetCore.Authorization
+@using TSG_Commex_Shared.DTOs
+@attribute [Authorize(Roles = "Admin")]
+
+<PageTitle>Status Taxonomy</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="py-4">
+    <MudText Typo="Typo.h4" Class="mb-4">Status Taxonomy Management</MudText>
+    <MudText Typo="Typo.body1" Class="mb-4">
+        Manage communication types and configure which statuses are valid for each type.
+    </MudText>
+    
+    <!-- Communication Types Section -->
+    <MudPaper Class="pa-4 mb-4">
+        <MudText Typo="Typo.h6" Class="mb-3">Communication Types</MudText>
+        
+        @if (isLoadingTypes)
+        {
+            <MudProgressLinear Indeterminate="true" />
+        }
+        else
+        {
+            <MudGrid>
+                @foreach (var type in communicationTypes)
+                {
+                    <MudItem xs="12" sm="6" md="4">
+                        <MudCard>
+                            <MudCardContent>
+                                <MudText Typo="Typo.h6">@type.DisplayName</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Primary">@type.TypeCode</MudText>
+                                <MudText Typo="Typo.body2">@type.Description</MudText>
+                            </MudCardContent>
+                            <MudCardActions>
+                                <MudButton Color="Color.Primary" Size="Size.Small">Configure Statuses</MudButton>
+                                <MudButton Color="Color.Warning" Size="Size.Small">Edit</MudButton>
+                            </MudCardActions>
+                        </MudCard>
+                    </MudItem>
+                }
+                
+                <!-- Add New Type Card -->
+                <MudItem xs="12" sm="6" md="4">
+                    <MudCard Style="border: 2px dashed #ccc; background-color: #fafafa;">
+                        <MudCardContent Class="d-flex flex-column align-center justify-center" Style="min-height: 150px;">
+                            <MudIcon Icon="@Icons.Material.Filled.Add" Size="Size.Large" Color="Color.Primary" />
+                            <MudText Typo="Typo.h6" Class="mt-2">Add New Type</MudText>
+                        </MudCardContent>
+                        <MudCardActions Class="justify-center">
+                            <MudButton Color="Color.Primary" Variant="Variant.Outlined">Create Type</MudButton>
+                        </MudCardActions>
+                    </MudCard>
+                </MudItem>
+            </MudGrid>
+        }
+    </MudPaper>
+    
+    <!-- Global Statuses Section -->
+    <MudPaper Class="pa-4">
+        <MudText Typo="Typo.h6" Class="mb-3">Global Status Definitions</MudText>
+        <MudText Typo="Typo.body2" Class="mb-3">
+            These are all available statuses in the system. Map them to communication types above.
+        </MudText>
+        
+        @if (isLoadingStatuses)
+        {
+            <MudProgressLinear Indeterminate="true" />
+        }
+        else
+        {
+            <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-6">
+                <MudTabPanel Text="Creation Phase">
+                    <MudSimpleTable Hover="true" Dense="true">
+                        <thead>
+                            <tr>
+                                <th>Status Code</th>
+                                <th>Display Name</th>
+                                <th>Description</th>
+                                <th>Used By</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var status in globalStatuses.Where(s => s.Phase == "Creation"))
+                            {
+                                <tr>
+                                    <td><MudChip T="string" Size="Size.Small" Color="Color.Primary">@status.StatusCode</MudChip></td>
+                                    <td>@status.DisplayName</td>
+                                    <td>@status.Description</td>
+                                    <td>EOB, EOP, ID_CARD</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                </MudTabPanel>
+                
+                <MudTabPanel Text="Production Phase">
+                    <MudSimpleTable Hover="true" Dense="true">
+                        <thead>
+                            <tr>
+                                <th>Status Code</th>
+                                <th>Display Name</th>
+                                <th>Description</th>
+                                <th>Used By</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var status in globalStatuses.Where(s => s.Phase == "Production"))
+                            {
+                                <tr>
+                                    <td><MudChip T="string" Size="Size.Small" Color="Color.Secondary">@status.StatusCode</MudChip></td>
+                                    <td>@status.DisplayName</td>
+                                    <td>@status.Description</td>
+                                    <td>EOB, ID_CARD</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                </MudTabPanel>
+                
+                <MudTabPanel Text="Logistics Phase">
+                    <MudSimpleTable Hover="true" Dense="true">
+                        <thead>
+                            <tr>
+                                <th>Status Code</th>
+                                <th>Display Name</th>
+                                <th>Description</th>
+                                <th>Used By</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var status in globalStatuses.Where(s => s.Phase == "Logistics"))
+                            {
+                                <tr>
+                                    <td><MudChip T="string" Size="Size.Small" Color="Color.Info">@status.StatusCode</MudChip></td>
+                                    <td>@status.DisplayName</td>
+                                    <td>@status.Description</td>
+                                    <td>All Types</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                </MudTabPanel>
+                
+                <MudTabPanel Text="Terminal Phase">
+                    <MudSimpleTable Hover="true" Dense="true">
+                        <thead>
+                            <tr>
+                                <th>Status Code</th>
+                                <th>Display Name</th>
+                                <th>Description</th>
+                                <th>Used By</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var status in globalStatuses.Where(s => s.Phase == "Terminal"))
+                            {
+                                <tr>
+                                    <td><MudChip T="string" Size="Size.Small" Color="Color.Error">@status.StatusCode</MudChip></td>
+                                    <td>@status.DisplayName</td>
+                                    <td>@status.Description</td>
+                                    <td>All Types</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                </MudTabPanel>
+            </MudTabs>
+        }
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private bool isLoadingTypes = true;
+    private bool isLoadingStatuses = true;
+    private List<CommunicationTypeDto> communicationTypes = new();
+    private List<GlobalStatusDto> globalStatuses = new();
+    
+    [Inject] private IHttpClientFactory HttpClientFactory { get; set; }
+    [Inject] private ISnackbar Snackbar { get; set; }
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCommunicationTypes();
+        await LoadGlobalStatuses();
+    }
+    
+    private async Task LoadCommunicationTypes()
+    {
+        try
+        {
+            isLoadingTypes = true;
+            // For now, using mock data since the endpoint might not exist yet
+            communicationTypes = new List<CommunicationTypeDto>
+            {
+                new() { TypeCode = "EOB", DisplayName = "Explanation of Benefits", Description = "Medical benefits explanation" },
+                new() { TypeCode = "EOP", DisplayName = "Explanation of Payments", Description = "Payment explanation document" },
+                new() { TypeCode = "ID_CARD", DisplayName = "ID Card", Description = "Member identification card" }
+            };
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading communication types: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isLoadingTypes = false;
+        }
+    }
+    
+    private async Task LoadGlobalStatuses()
+    {
+        try
+        {
+            isLoadingStatuses = true;
+            // For now, using mock data
+            globalStatuses = new List<GlobalStatusDto>
+            {
+                // Creation Phase
+                new() { StatusCode = "Created", DisplayName = "Created", Description = "Initial creation", Phase = "Creation" },
+                new() { StatusCode = "ReadyForRelease", DisplayName = "Ready for Release", Description = "Ready to be released", Phase = "Creation" },
+                new() { StatusCode = "Released", DisplayName = "Released", Description = "Released to production", Phase = "Creation" },
+                
+                // Production Phase
+                new() { StatusCode = "QueuedForPrinting", DisplayName = "Queued for Printing", Description = "In print queue", Phase = "Production" },
+                new() { StatusCode = "Printed", DisplayName = "Printed", Description = "Document printed", Phase = "Production" },
+                new() { StatusCode = "Inserted", DisplayName = "Inserted", Description = "Inserted into envelope", Phase = "Production" },
+                new() { StatusCode = "WarehouseReady", DisplayName = "Warehouse Ready", Description = "Ready at warehouse", Phase = "Production" },
+                
+                // Logistics Phase
+                new() { StatusCode = "Shipped", DisplayName = "Shipped", Description = "Shipped to member", Phase = "Logistics" },
+                new() { StatusCode = "InTransit", DisplayName = "In Transit", Description = "In transit to member", Phase = "Logistics" },
+                new() { StatusCode = "Delivered", DisplayName = "Delivered", Description = "Delivered to member", Phase = "Logistics" },
+                new() { StatusCode = "Returned", DisplayName = "Returned", Description = "Returned to sender", Phase = "Logistics" },
+                
+                // Terminal Phase
+                new() { StatusCode = "Failed", DisplayName = "Failed", Description = "Processing failed", Phase = "Terminal" },
+                new() { StatusCode = "Cancelled", DisplayName = "Cancelled", Description = "Process cancelled", Phase = "Terminal" },
+                new() { StatusCode = "OnHold", DisplayName = "On Hold", Description = "Temporarily paused", Phase = "Terminal" }
+            };
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading global statuses: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isLoadingStatuses = false;
+        }
+    }
+    
+    // DTOs - temporary until the shared DTOs are available
+    public class CommunicationTypeDto
+    {
+        public string TypeCode { get; set; } = string.Empty;
+        public string DisplayName { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+    }
+    
+    public class GlobalStatusDto
+    {
+        public string StatusCode { get; set; } = string.Empty;
+        public string DisplayName { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public string Phase { get; set; } = string.Empty;
+    }
+}

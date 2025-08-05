@@ -64,6 +64,24 @@
         <h2 class="admin-platform-title">Admin Platform</h2>
 
         <div class="admin-features-grid">
+            <!-- Manage Communications (moved to first) -->
+            <MudPaper Class="admin-feature-card" Elevation="2">
+                <div class="admin-feature-content">
+                    <div class="admin-feature-icon">
+                        <MudIcon Icon="@Icons.Material.Filled.Add" Size="Size.Large" Color="Color.Success" />
+                    </div>
+                    <h3 class="admin-feature-title">Manage Communications</h3>
+                    <p class="admin-feature-description">
+                        Create new communications for EOBs, EOPs, ID Cards, and other document types.
+                    </p>
+                    <MudButton Variant="Variant.Text" Color="Color.Primary"
+                        StartIcon="@Icons.Material.Filled.ArrowForward" 
+                        Href="/admin/manage-communications">
+                        Manage Communications
+                    </MudButton>
+                </div>
+            </MudPaper>
+
             <!-- Status Taxonomy Management -->
             <MudPaper Class="admin-feature-card" Elevation="2">
                 <div class="admin-feature-content">
@@ -118,23 +136,6 @@
                 </div>
             </MudPaper>
 
-            <!-- Communication Management -->
-            <MudPaper Class="admin-feature-card" Elevation="2">
-                <div class="admin-feature-content">
-                    <div class="admin-feature-icon">
-                        <MudIcon Icon="@Icons.Material.Filled.Add" Size="Size.Large" Color="Color.Success" />
-                    </div>
-                    <h3 class="admin-feature-title">Add Communications</h3>
-                    <p class="admin-feature-description">
-                        Create new communications, bulk import data, and manage
-                        communication templates and types.
-                    </p>
-                    <MudButton Variant="Variant.Text" Color="Color.Primary"
-                        StartIcon="@Icons.Material.Filled.ArrowForward" Href="/admin/communications">
-                        Add Communications
-                    </MudButton>
-                </div>
-            </MudPaper>
 
             <!-- Reports & Analytics -->
             <MudPaper Class="admin-feature-card" Elevation="2">

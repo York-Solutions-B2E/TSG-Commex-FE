@@ -1,0 +1,215 @@
+@page "/admin/manage-communications"
+@using Microsoft.AspNetCore.Authorization
+@using TSG_Commex_Shared.DTOs
+@attribute [Authorize(Roles = "Admin")]
+
+<PageTitle>Manage Communications</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="py-4">
+    <MudText Typo="Typo.h4" Class="mb-4">Manage Communications</MudText>
+    
+    <!-- Add Communication Section -->
+    <MudPaper Class="pa-4 mb-4">
+        <MudText Typo="Typo.h6" Class="mb-3">Create New Communication</MudText>
+        
+        <MudForm @ref="form" @bind-IsValid="@isFormValid">
+            <MudGrid>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudSelect T="string" Label="Communication Type" @bind-Value="newCommunication.TypeCode" Required="true" 
+                               RequiredError="Communication type is required">
+                        <MudSelectItem Value="@("EOB")">EOB - Explanation of Benefits</MudSelectItem>
+                        <MudSelectItem Value="@("EOP")">EOP - Explanation of Payments</MudSelectItem>
+                        <MudSelectItem Value="@("ID_CARD")">ID Card</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                
+                <MudItem xs="12" sm="6" md="3">
+                    <MudTextField @bind-Value="newCommunication.Title" Label="Title" Required="true"
+                                  RequiredError="Title is required" />
+                </MudItem>
+                
+                <MudItem xs="12" sm="6" md="3">
+                    <MudTextField @bind-Value="newCommunication.MemberInfo" Label="Member Information" 
+                                  HelperText="e.g., Member ID: 12345" />
+                </MudItem>
+                
+                <MudItem xs="12" sm="6" md="3">
+                    <MudTextField @bind-Value="newCommunication.SourceFileUrl" Label="Source File URL" 
+                                  HelperText="URL to the source document" />
+                </MudItem>
+                
+                <MudItem xs="12">
+                    <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="CreateCommunication" 
+                               Disabled="@(!isFormValid || isCreating)" StartIcon="@Icons.Material.Filled.Add">
+                        @if (isCreating)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="ms-2" />
+                            <span class="ms-2">Creating...</span>
+                        }
+                        else
+                        {
+                            <span>Create Communication</span>
+                        }
+                    </MudButton>
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </MudPaper>
+    
+    <!-- Communications List -->
+    <MudPaper Class="pa-4">
+        <MudText Typo="Typo.h6" Class="mb-3">Existing Communications</MudText>
+        
+        @if (isLoading)
+        {
+            <MudProgressLinear Indeterminate="true" />
+        }
+        else if (communications == null || !communications.Any())
+        {
+            <MudAlert Severity="Severity.Info">No communications found. Create one above!</MudAlert>
+        }
+        else
+        {
+            <MudTable Items="@communications" Hover="true" Striped="true" Dense="true">
+                <HeaderContent>
+                    <MudTh>ID</MudTh>
+                    <MudTh>Subject</MudTh>
+                    <MudTh>Type</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh>Recipient</MudTh>
+                    <MudTh>Created</MudTh>
+                    <MudTh>Actions</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="ID">@context.Id</MudTd>
+                    <MudTd DataLabel="Subject">@context.Subject</MudTd>
+                    <MudTd DataLabel="Type">
+                        <MudChip T="string" Size="Size.Small" Color="GetTypeColor(context.TypeCode)">
+                            @context.TypeCode
+                        </MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Status">
+                        <MudChip T="string" Size="Size.Small" Color="Color.Info">
+                            @context.CurrentStatus
+                        </MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Recipient">@(string.IsNullOrEmpty(context.RecipientInfo) ? "-" : context.RecipientInfo)</MudTd>
+                    <MudTd DataLabel="Created">@context.CreatedUtc.ToLocalTime().ToString("g")</MudTd>
+                    <MudTd DataLabel="Actions">
+                        <MudIconButton Icon="@Icons.Material.Filled.Visibility" Color="Color.Primary" 
+                                       Size="Size.Small" Href="@($"/communications/{context.Id}")" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" 
+                                       Size="Size.Small" OnClick="@(async () => await DeleteCommunication(context.Id))" />
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private MudForm form;
+    private bool isFormValid;
+    private bool isCreating = false;
+    private bool isLoading = true;
+    private List<CommunicationResponse> communications = new();
+    
+    [Inject] private IHttpClientFactory HttpClientFactory { get; set; }
+    [Inject] private ISnackbar Snackbar { get; set; }
+    
+    private CreateCommunicationModel newCommunication = new();
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCommunications();
+    }
+    
+    private async Task LoadCommunications()
+    {
+        try
+        {
+            isLoading = true;
+            var httpClient = HttpClientFactory.CreateClient("API");
+            communications = await httpClient.GetFromJsonAsync<List<CommunicationResponse>>("api/communications") ?? new();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading communications: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+    
+    private async Task CreateCommunication()
+    {
+        try
+        {
+            isCreating = true;
+            var httpClient = HttpClientFactory.CreateClient("API");
+            var response = await httpClient.PostAsJsonAsync("api/communications", newCommunication);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("Communication created successfully!", Severity.Success);
+                newCommunication = new CreateCommunicationModel(); // Reset form
+                await LoadCommunications(); // Refresh list
+            }
+            else
+            {
+                Snackbar.Add("Failed to create communication", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isCreating = false;
+        }
+    }
+    
+    private async Task DeleteCommunication(int id)
+    {
+        try
+        {
+            var httpClient = HttpClientFactory.CreateClient("API");
+            var response = await httpClient.DeleteAsync($"api/communications/{id}");
+            
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("Communication deleted successfully!", Severity.Success);
+                await LoadCommunications();
+            }
+            else
+            {
+                Snackbar.Add("Failed to delete communication", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+    
+    private Color GetTypeColor(string typeCode)
+    {
+        return typeCode switch
+        {
+            "EOB" => Color.Primary,
+            "EOP" => Color.Secondary,
+            "ID_CARD" => Color.Tertiary,
+            _ => Color.Default
+        };
+    }
+    
+    public class CreateCommunicationModel
+    {
+        public string TypeCode { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
+        public string? MemberInfo { get; set; }
+        public string? SourceFileUrl { get; set; }
+    }
+}
