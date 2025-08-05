@@ -1,0 +1,51 @@
+@using Microsoft.AspNetCore.Components.Authorization
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<AuthorizeView>
+    <Authorized>
+        <div class="d-flex align-center">
+            <MudIcon Icon="@Icons.Material.Filled.Person" Class="mr-2" />
+            <MudText Typo="Typo.body2" Class="mr-3">
+                Hello, @GetDisplayName(context.User)!
+                @if (IsAdmin(context.User))
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Warning" Class="ml-1">Admin</MudChip>
+                }
+            </MudText>
+            <MudButton Variant="Variant.Text" Color="Color.Inherit" Size="Size.Small" OnClick="@Logout">
+                Logout
+            </MudButton>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@Login">
+            Login
+        </MudButton>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private void Login()
+    {
+        Navigation.NavigateTo("/Auth/SignIn", forceLoad: true);
+    }
+
+    private void Logout()
+    {
+        Navigation.NavigateTo("/Auth/SignOut", forceLoad: true);
+    }
+
+    private string GetDisplayName(System.Security.Claims.ClaimsPrincipal user)
+    {
+        return user.FindFirst("name")?.Value
+        ?? user.FindFirst("preferred_username")?.Value
+        ?? user.FindFirst("email")?.Value
+        ?? "User";
+    }
+
+    private bool IsAdmin(System.Security.Claims.ClaimsPrincipal user)
+    {
+        return user.IsInRole("Admin");
+    }
+}

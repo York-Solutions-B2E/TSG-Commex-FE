@@ -3,10 +3,14 @@
 @inject IHttpClientFactory HttpClientFactory
 @inject ILogger<Communications> Logger
 @inject NavigationManager Navigation
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
 
 <PageTitle>Communications</PageTitle>
 
-<h3>Communications Management</h3>
+<AuthorizeView>
+    <Authorized>
+        <h3>Communications Management</h3>
         @if (communications == null)
         {
             <MudProgressCircular Indeterminate="true" />
@@ -182,6 +186,21 @@
                 }
             </MudGrid>
         }
+    </Authorized>
+    <NotAuthorized>
+        <MudContainer MaxWidth="MaxWidth.Small" Class="mt-8">
+            <MudPaper Elevation="2" Class="pa-8 text-center">
+                <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Large" Color="Color.Primary" Class="mb-4" />
+                <MudText Typo="Typo.h4" Class="mb-2">Sign In Required</MudText>
+                <MudText Typo="Typo.body1" Class="mb-6">You need to sign in to view your communications.</MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" 
+                    Href="/Auth/SignIn?returnUrl=/communications" FullWidth="true">
+                    Sign In
+                </MudButton>
+            </MudPaper>
+        </MudContainer>
+    </NotAuthorized>
+</AuthorizeView>
 
 @code {
     private IEnumerable<CommunicationResponse>? communications;

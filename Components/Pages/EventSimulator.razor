@@ -7,6 +7,7 @@
 @inject IHttpClientFactory HttpClientFactory
 @inject ILogger<EventSimulator> Logger
 @inject AuthenticationStateProvider AuthenticationStateProvider
+@attribute [Authorize(Roles = "Admin")]
 
 <PageTitle>Event Simulator</PageTitle>
 

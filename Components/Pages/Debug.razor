@@ -1,0 +1,126 @@
+@page "/debug"
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Authentication
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IHttpContextAccessor HttpContextAccessor
+
+<PageTitle>Debug Auth</PageTitle>
+
+<h3>Authentication Debug Info</h3>
+
+<AuthorizeView>
+    <Authorized>
+        <div class="alert alert-success">
+            <h4>✅ User is Authenticated</h4>
+            <p><strong>Name:</strong> @context.User.Identity?.Name</p>
+            <p><strong>Auth Type:</strong> @context.User.Identity?.AuthenticationType</p>
+            <p><strong>Is Authenticated:</strong> @context.User.Identity?.IsAuthenticated</p>
+        </div>
+
+        <h4>All Claims:</h4>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Claim Type</th>
+                    <th>Value</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var claim in context.User.Claims)
+                {
+                    <tr>
+                        <td>@claim.Type</td>
+                        <td>@claim.Value</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <h4>Tokens:</h4>
+        @if (AccessToken != null)
+        {
+            <div class="alert alert-info">
+                <p><strong>Access Token (first 50 chars):</strong> @AccessToken.Substring(0, Math.Min(50,
+                                    AccessToken.Length))...</p>
+            <details>
+                <summary>Full Access Token</summary>
+                <pre style="word-break: break-all;">@AccessToken</pre>
+            </details>
+        </div>
+                }
+        else
+        {
+            <div class="alert alert-warning">No access token found</div>
+        }
+
+        @if (IdToken != null)
+        {
+            <div class="alert alert-info">
+                <p><strong>ID Token (first 50 chars):</strong> @IdToken.Substring(0, Math.Min(50, IdToken.Length))...</p>
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-warning">No ID token found</div>
+        }
+
+        <h4>Role Check:</h4>
+        <div class="alert @(context.User.IsInRole("Admin") ? "alert-success" : "alert-warning")">
+            <strong>Is Admin:</strong> @context.User.IsInRole("Admin")
+        </div>
+
+        <h4>Test API Call:</h4>
+        <button class="btn btn-primary" @onclick="TestApiCall">Test API Call</button>
+        @if (!string.IsNullOrEmpty(ApiResult))
+        {
+            <div class="alert alert-info mt-2">
+                <strong>API Result:</strong> @ApiResult
+            </div>
+        }
+    </Authorized>
+    <NotAuthorized>
+        <div class="alert alert-danger">
+            <h4>❌ User is NOT Authenticated</h4>
+            <a href="/Auth/SignIn" class="btn btn-primary">Sign In</a>
+        </div>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private string? AccessToken;
+    private string? IdToken;
+    private string? ApiResult;
+
+    [Inject] private IHttpClientFactory HttpClientFactory { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            if (HttpContextAccessor.HttpContext != null)
+            {
+                AccessToken = await HttpContextAccessor.HttpContext.GetTokenAsync("access_token");
+                IdToken = await HttpContextAccessor.HttpContext.GetTokenAsync("id_token");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error getting tokens: {ex.Message}");
+        }
+    }
+
+    private async Task TestApiCall()
+    {
+        try
+        {
+            var httpClient = HttpClientFactory.CreateClient("API");
+            var response = await httpClient.GetAsync("/api/communications");
+
+            ApiResult = $"Status: {response.StatusCode}, Content: {await response.Content.ReadAsStringAsync()}";
+        }
+        catch (Exception ex)
+        {
+            ApiResult = $"Error: {ex.Message}";
+        }
+    }
+}
