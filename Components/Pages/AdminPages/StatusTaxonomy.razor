@@ -40,7 +40,7 @@
                             </MudCardContent>
                             <MudCardActions>
                                 <MudButton Color="Color.Primary" Size="Size.Small">Configure Statuses</MudButton>
-                                <MudButton Color="Color.Warning" Size="Size.Small">Edit</MudButton>
+                                <MudButton Color="Color.Warning" Size="Size.Small" OnClick="@(() => OpenEditDialog(type))">Edit</MudButton>
                             </MudCardActions>
                         </MudCard>
                     </MudItem>
@@ -262,6 +262,28 @@
         if (!result.Canceled)
         {
             await LoadCommunicationTypes(); // Reload the list if a type was created
+        }
+    }
+    
+    private async Task OpenEditDialog(CommunicationTypeResponse communicationType)
+    {
+        var parameters = new DialogParameters
+        {
+            { "CommunicationType", communicationType }
+        };
+        var options = new DialogOptions 
+        { 
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true
+        };
+        
+        var dialog = await DialogService.ShowAsync<EditCommunicationTypeDialog>("Edit Communication Type", parameters, options);
+        var result = await dialog.Result;
+        
+        if (!result.Canceled)
+        {
+            await LoadCommunicationTypes(); // Reload the list if a type was updated
         }
     }
 }

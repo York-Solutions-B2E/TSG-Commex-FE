@@ -1,4 +1,5 @@
 @page "/admin/manage-communications"
+@rendermode InteractiveServer
 @using Microsoft.AspNetCore.Authorization
 @using TSG_Commex_Shared.DTOs
 @attribute [Authorize(Roles = "Admin")]
@@ -57,54 +58,73 @@
     </MudPaper>
     
     <!-- Communications List -->
-    <MudPaper Class="pa-4">
-        <MudText Typo="Typo.h6" Class="mb-3">Existing Communications</MudText>
+    <MudGrid>
+        <MudItem xs="12" md="@(selectedCommunication == null ? 12 : 7)">
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.h6" Class="mb-3">Existing Communications</MudText>
+                
+                @if (isLoading)
+                {
+                    <MudProgressLinear Indeterminate="true" />
+                }
+                else if (communications == null || !communications.Any())
+                {
+                    <MudAlert Severity="Severity.Info">No communications found. Create one above!</MudAlert>
+                }
+                else
+                {
+                    <MudTable Items="@communications" Hover="true" Striped="true" Dense="true"
+                              SelectedItem="selectedCommunication" SelectedItemChanged="OnCommunicationSelected" T="CommunicationResponse">
+                        <HeaderContent>
+                            <MudTh>ID</MudTh>
+                            <MudTh>Subject</MudTh>
+                            <MudTh>Type</MudTh>
+                            <MudTh>Status</MudTh>
+                            <MudTh>Member</MudTh>
+                            <MudTh>Created</MudTh>
+                            <MudTh>Actions</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="ID">@context.Id</MudTd>
+                            <MudTd DataLabel="Subject">@context.Subject</MudTd>
+                            <MudTd DataLabel="Type">
+                                <MudChip T="string" Size="Size.Small" Color="GetTypeColor(context.TypeCode)">
+                                    @context.TypeCode
+                                </MudChip>
+                            </MudTd>
+                            <MudTd DataLabel="Status">
+                                <MudChip T="string" Size="Size.Small" Color="GetStatusColor(context.CurrentStatus)">
+                                    @context.CurrentStatus
+                                </MudChip>
+                            </MudTd>
+                            <MudTd DataLabel="Member">
+                                <MudText Typo="Typo.body2">@context.MemberName</MudText>
+                                <MudText Typo="Typo.caption">@context.RecipientInfo</MudText>
+                            </MudTd>
+                            <MudTd DataLabel="Created">@context.CreatedUtc.ToLocalTime().ToString("g")</MudTd>
+                            <MudTd DataLabel="Actions">
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" 
+                                               Size="Size.Small" OnClick="@(async (e) => { await DeleteCommunication(context.Id); })" />
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                }
+            </MudPaper>
+        </MudItem>
         
-        @if (isLoading)
+        @if (selectedCommunication != null)
         {
-            <MudProgressLinear Indeterminate="true" />
+            <MudItem xs="12" md="5">
+                <TSG_Commex_FE.Components.Shared.CommunicationDetailView 
+                    Communication="selectedCommunication"
+                    ShowAdminDetails="true"
+                    UseTimelineView="false"
+                    ShowViewDetailsButton="true"
+                    AutoLoadHistory="true"
+                    OnClose="@(() => { selectedCommunication = null; StateHasChanged(); })" />
+            </MudItem>
         }
-        else if (communications == null || !communications.Any())
-        {
-            <MudAlert Severity="Severity.Info">No communications found. Create one above!</MudAlert>
-        }
-        else
-        {
-            <MudTable Items="@communications" Hover="true" Striped="true" Dense="true">
-                <HeaderContent>
-                    <MudTh>ID</MudTh>
-                    <MudTh>Subject</MudTh>
-                    <MudTh>Type</MudTh>
-                    <MudTh>Status</MudTh>
-                    <MudTh>Recipient</MudTh>
-                    <MudTh>Created</MudTh>
-                    <MudTh>Actions</MudTh>
-                </HeaderContent>
-                <RowTemplate>
-                    <MudTd DataLabel="ID">@context.Id</MudTd>
-                    <MudTd DataLabel="Subject">@context.Subject</MudTd>
-                    <MudTd DataLabel="Type">
-                        <MudChip T="string" Size="Size.Small" Color="GetTypeColor(context.TypeCode)">
-                            @context.TypeCode
-                        </MudChip>
-                    </MudTd>
-                    <MudTd DataLabel="Status">
-                        <MudChip T="string" Size="Size.Small" Color="Color.Info">
-                            @context.CurrentStatus
-                        </MudChip>
-                    </MudTd>
-                    <MudTd DataLabel="Recipient">@(string.IsNullOrEmpty(context.RecipientInfo) ? "-" : context.RecipientInfo)</MudTd>
-                    <MudTd DataLabel="Created">@context.CreatedUtc.ToLocalTime().ToString("g")</MudTd>
-                    <MudTd DataLabel="Actions">
-                        <MudIconButton Icon="@Icons.Material.Filled.Visibility" Color="Color.Primary" 
-                                       Size="Size.Small" Href="@($"/communications/{context.Id}")" />
-                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" 
-                                       Size="Size.Small" OnClick="@(async () => await DeleteCommunication(context.Id))" />
-                    </MudTd>
-                </RowTemplate>
-            </MudTable>
-        }
-    </MudPaper>
+    </MudGrid>
 </MudContainer>
 
 @code {
@@ -113,6 +133,7 @@
     private bool isCreating = false;
     private bool isLoading = true;
     private List<CommunicationResponse> communications = new();
+    private CommunicationResponse? selectedCommunication;
     
     [Inject] private IHttpClientFactory HttpClientFactory { get; set; }
     [Inject] private ISnackbar Snackbar { get; set; }
@@ -122,6 +143,12 @@
     protected override async Task OnInitializedAsync()
     {
         await LoadCommunications();
+    }
+    
+    private void OnCommunicationSelected(CommunicationResponse communication)
+    {
+        selectedCommunication = communication;
+        StateHasChanged();
     }
     
     private async Task LoadCommunications()
@@ -201,6 +228,21 @@
             "EOB" => Color.Primary,
             "EOP" => Color.Secondary,
             "ID_CARD" => Color.Tertiary,
+            _ => Color.Default
+        };
+    }
+    
+    private Color GetStatusColor(string status)
+    {
+        return status.ToLower() switch
+        {
+            "created" or "readyforrelease" => Color.Info,
+            "released" or "queuedforprinting" => Color.Warning,
+            "printed" or "inserted" or "warehouseready" => Color.Primary,
+            "shipped" or "intransit" => Color.Secondary,
+            "delivered" => Color.Success,
+            "returned" or "failed" or "cancelled" or "expired" => Color.Error,
+            "archived" => Color.Dark,
             _ => Color.Default
         };
     }

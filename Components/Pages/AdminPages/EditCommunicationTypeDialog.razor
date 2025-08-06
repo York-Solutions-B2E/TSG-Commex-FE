@@ -1,0 +1,129 @@
+@using TSG_Commex_Shared.DTOs.Request
+@using TSG_Commex_Shared.DTOs.Response
+@using System.Net.Http.Json
+@inject IHttpClientFactory HttpClientFactory
+@inject ISnackbar Snackbar
+@inject ILogger<EditCommunicationTypeDialog> Logger
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Edit" Class="mr-3" Style="vertical-align: middle;" />
+            Edit Communication Type
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudForm @ref="form" @bind-IsValid="@isValid">
+            <MudTextField @bind-Value="model.TypeCode" 
+                         Label="Type Code" 
+                         Required="true"
+                         RequiredError="Type code is required"
+                         Placeholder="e.g., WELCOME_KIT"
+                         HelperText="Unique identifier for this type (uppercase, no spaces)"
+                         Immediate="true"
+                         Class="mb-4" />
+            
+            <MudTextField @bind-Value="model.DisplayName" 
+                         Label="Display Name" 
+                         Required="true"
+                         RequiredError="Display name is required"
+                         Placeholder="e.g., Welcome Kit"
+                         HelperText="User-friendly name for this type"
+                         Immediate="true"
+                         Class="mb-4" />
+            
+            <MudTextField @bind-Value="model.Description" 
+                         Label="Description" 
+                         Required="true"
+                         RequiredError="Description is required"
+                         Placeholder="e.g., New member welcome package with important information"
+                         Lines="3"
+                         HelperText="Detailed description of this communication type"
+                         Immediate="true"
+                         Class="mb-4" />
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" 
+                  Variant="Variant.Filled" 
+                  OnClick="Submit"
+                  Disabled="@(!isValid || isProcessing)">
+            @if (isProcessing)
+            {
+                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                <MudText Class="ms-2">Updating...</MudText>
+            }
+            else
+            {
+                <MudText>Update Type</MudText>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public CommunicationTypeResponse CommunicationType { get; set; } = default!;
+    
+    private UpdateCommunicationTypeRequest model = new();
+    private bool isValid;
+    private bool isProcessing;
+    private MudForm? form;
+
+    protected override void OnInitialized()
+    {
+        // Initialize the model with existing values
+        if (CommunicationType != null)
+        {
+            model.TypeCode = CommunicationType.TypeCode;
+            model.DisplayName = CommunicationType.DisplayName;
+            model.Description = CommunicationType.Description;
+        }
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+
+    private async Task Submit()
+    {
+        if (form != null)
+        {
+            await form.Validate();
+            if (!form.IsValid)
+                return;
+        }
+
+        try
+        {
+            isProcessing = true;
+            
+            var httpClient = HttpClientFactory.CreateClient("API");
+            var response = await httpClient.PutAsJsonAsync($"api/communication-types/{CommunicationType.Id}", model);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                Logger.LogInformation("Updated communication type: {OldTypeCode} -> {NewTypeCode}", CommunicationType.TypeCode, model.TypeCode);
+                Snackbar.Add($"Communication type '{model.DisplayName}' updated successfully!", Severity.Success);
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                Logger.LogWarning("Failed to update communication type: {Error}", error);
+                Snackbar.Add($"Error updating type: {error}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error updating communication type");
+            Snackbar.Add($"Error updating type: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+}

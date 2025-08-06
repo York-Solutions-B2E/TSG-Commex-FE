@@ -1,0 +1,281 @@
+@using TSG_Commex_Shared.DTOs
+@inject IHttpClientFactory HttpClientFactory
+@inject ILogger<CommunicationDetailView> Logger
+
+<MudPaper Elevation="2" Class="pa-4">
+    <div class="d-flex justify-space-between align-center mb-3">
+        <MudText Typo="Typo.h5">Communication Details</MudText>
+        @if (OnClose.HasDelegate)
+        {
+            <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" OnClick="@OnClose" />
+        }
+    </div>
+    
+    @if (Communication != null)
+    {
+        <MudText Typo="Typo.h6" Class="mb-2">@Communication.Subject</MudText>
+        
+        @if (!string.IsNullOrEmpty(Communication.Message))
+        {
+            <MudText Typo="Typo.body1" Class="mb-4">@Communication.Message</MudText>
+        }
+        
+        <MudSimpleTable Hover="true" Dense="true" Class="mb-4">
+            <tbody>
+                <tr>
+                    <td style="font-weight: 600; width: 40%;">ID</td>
+                    <td>@Communication.Id</td>
+                </tr>
+                <tr>
+                    <td style="font-weight: 600;">Type</td>
+                    <td>
+                        <MudChip T="string" Size="Size.Small" Color="@GetTypeColor(Communication.TypeCode)">
+                            @Communication.TypeCode
+                        </MudChip>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="font-weight: 600;">Status</td>
+                    <td>
+                        <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(Communication.CurrentStatus)">
+                            @Communication.CurrentStatus
+                        </MudChip>
+                    </td>
+                </tr>
+                @if (ShowAdminDetails)
+                {
+                    <tr>
+                        <td style="font-weight: 600;">Member</td>
+                        <td>@Communication.MemberName (ID: @Communication.MemberId)</td>
+                    </tr>
+                }
+                <tr>
+                    <td style="font-weight: 600;">Recipient</td>
+                    <td>@Communication.RecipientInfo</td>
+                </tr>
+                <tr>
+                    <td style="font-weight: 600;">Created</td>
+                    <td>
+                        @Communication.CreatedUtc.ToLocalTime().ToString("MM/dd/yyyy hh:mm tt")
+                        <MudText Typo="Typo.caption">by @Communication.CreatedByUserName</MudText>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="font-weight: 600;">Last Updated</td>
+                    <td>@Communication.LastUpdatedUtc.ToLocalTime().ToString("MM/dd/yyyy hh:mm tt")</td>
+                </tr>
+                @if (ShowAdminDetails)
+                {
+                    <tr>
+                        <td style="font-weight: 600;">Type ID</td>
+                        <td>@Communication.CommunicationTypeId</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: 600;">Status ID</td>
+                        <td>@Communication.CurrentStatusId</td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+        
+        <MudDivider Class="my-4" />
+        
+        <MudText Typo="Typo.h6" Class="mb-3">Status History</MudText>
+        
+        @if (loadingHistory)
+        {
+            <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+            <MudText Class="ml-2">Loading status history...</MudText>
+        }
+        else if (statusHistory != null && statusHistory.Any())
+        {
+            @if (UseTimelineView)
+            {
+                <MudTimeline>
+                    @foreach (var status in statusHistory.OrderBy(s => s.OccurredUtc))
+                    {
+                        <MudTimelineItem Color="@GetStatusColor(status.StatusCode)" Size="Size.Small">
+                            <ItemContent>
+                                <MudText Typo="Typo.subtitle2">@status.StatusCode</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Primary">
+                                    @status.OccurredUtc.ToLocalTime().ToString("MM/dd/yyyy hh:mm tt")
+                                </MudText>
+                                @if (!string.IsNullOrEmpty(status.Notes))
+                                {
+                                    <MudText Typo="Typo.caption">@status.Notes</MudText>
+                                }
+                                @if (ShowAdminDetails)
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        Source: @(status.EventSource ?? "Manual") | By: @(status.UpdatedByUserName ?? "System")
+                                    </MudText>
+                                }
+                            </ItemContent>
+                        </MudTimelineItem>
+                    }
+                </MudTimeline>
+            }
+            else
+            {
+                <MudTable Items="@statusHistory.OrderByDescending(s => s.OccurredUtc)" Dense="true" Hover="true" Elevation="0">
+                    <HeaderContent>
+                        <MudTh>Status</MudTh>
+                        <MudTh>Occurred</MudTh>
+                        @if (ShowAdminDetails)
+                        {
+                            <MudTh>Source</MudTh>
+                            <MudTh>Updated By</MudTh>
+                        }
+                        <MudTh>Notes</MudTh>
+                    </HeaderContent>
+                    <RowTemplate Context="status">
+                        <MudTd DataLabel="Status">
+                            <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(status.StatusCode)">
+                                @status.StatusCode
+                            </MudChip>
+                        </MudTd>
+                        <MudTd DataLabel="Occurred">
+                            <MudText Typo="Typo.body2">@status.OccurredUtc.ToLocalTime().ToString("MM/dd/yyyy hh:mm tt")</MudText>
+                        </MudTd>
+                        @if (ShowAdminDetails)
+                        {
+                            <MudTd DataLabel="Source">
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">
+                                    @(status.EventSource ?? "Manual")
+                                </MudChip>
+                            </MudTd>
+                            <MudTd DataLabel="Updated By">
+                                @(status.UpdatedByUserName ?? "System")
+                            </MudTd>
+                        }
+                        <MudTd DataLabel="Notes">
+                            @(status.Notes ?? "-")
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            }
+            
+            <MudText Typo="Typo.caption" Color="Color.Primary" Class="mt-3">
+                <strong>@statusHistory.Count() status change@(statusHistory.Count() == 1 ? "" : "s")</strong>
+                • Current: @Communication.CurrentStatus
+            </MudText>
+        }
+        else if (!string.IsNullOrEmpty(historyError))
+        {
+            <MudAlert Severity="Severity.Error" Dense="true">
+                Error loading status history: @historyError
+                <MudButton OnClick="@LoadStatusHistory" Variant="Variant.Text" Size="Size.Small" Class="ml-2">
+                    Retry
+                </MudButton>
+            </MudAlert>
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Info" Dense="true">
+                No status history found for this communication.
+            </MudAlert>
+        }
+        
+        @if (ShowViewDetailsButton)
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-4"
+                Href="@($"/communications/{Communication.Id}")">
+                View Full Details
+            </MudButton>
+        }
+    }
+    else
+    {
+        <MudText>No communication selected</MudText>
+    }
+</MudPaper>
+
+@code {
+    [Parameter] public CommunicationResponse? Communication { get; set; }
+    [Parameter] public bool ShowAdminDetails { get; set; } = false;
+    [Parameter] public bool UseTimelineView { get; set; } = true;
+    [Parameter] public bool ShowViewDetailsButton { get; set; } = true;
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public bool AutoLoadHistory { get; set; } = true;
+    
+    private IEnumerable<CommunicationStatusHistory>? statusHistory;
+    private bool loadingHistory = false;
+    private string? historyError;
+    
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Communication != null && AutoLoadHistory)
+        {
+            await LoadStatusHistory();
+        }
+    }
+    
+    private async Task LoadStatusHistory()
+    {
+        if (Communication == null) return;
+        
+        try
+        {
+            loadingHistory = true;
+            historyError = null;
+            StateHasChanged();
+            
+            Logger.LogInformation("Loading status history for communication {Id}", Communication.Id);
+            
+            var httpClient = HttpClientFactory.CreateClient("API");
+            var response = await httpClient.GetAsync($"api/communications/{Communication.Id}/status-history");
+            
+            if (response.IsSuccessStatusCode)
+            {
+                statusHistory = await response.Content.ReadFromJsonAsync<IEnumerable<CommunicationStatusHistory>>();
+                Logger.LogInformation("Loaded {Count} status history records", statusHistory?.Count() ?? 0);
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                // No history is okay
+                statusHistory = new List<CommunicationStatusHistory>();
+            }
+            else
+            {
+                historyError = $"Failed to load history: {response.StatusCode}";
+                Logger.LogWarning("Failed to load status history: {StatusCode}", response.StatusCode);
+            }
+        }
+        catch (Exception ex)
+        {
+            historyError = ex.Message;
+            Logger.LogError(ex, "Error loading status history for communication {Id}", Communication.Id);
+        }
+        finally
+        {
+            loadingHistory = false;
+            StateHasChanged();
+        }
+    }
+    
+    private Color GetStatusColor(string status)
+    {
+        return status.ToLower() switch
+        {
+            "created" or "readyforrelease" => Color.Info,
+            "released" or "queuedforprinting" => Color.Warning,
+            "printed" or "inserted" or "warehouseready" => Color.Primary,
+            "shipped" or "intransit" => Color.Secondary,
+            "delivered" => Color.Success,
+            "returned" or "failed" or "cancelled" or "expired" => Color.Error,
+            "archived" => Color.Dark,
+            _ => Color.Default
+        };
+    }
+    
+    private Color GetTypeColor(string typeCode)
+    {
+        return typeCode switch
+        {
+            "EOB" => Color.Primary,
+            "EOP" => Color.Secondary,
+            "ID_CARD" => Color.Tertiary,
+            _ => Color.Default
+        };
+    }
+}

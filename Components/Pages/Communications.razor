@@ -91,97 +91,13 @@
                 @if (selectedCommunication != null)
                 {
                     <MudItem xs="12" md="6">
-                        <MudPaper Elevation="2" Class="pa-4 mt-4">
-                            <div class="d-flex justify-space-between align-center mb-3">
-                                <MudText Typo="Typo.h5">Communication Details</MudText>
-                                <MudIconButton Size="Size.Small" OnClick="@(() => selectedCommunication = null)">
-                                    <MudText>✕</MudText>
-                                </MudIconButton>
-                            </div>
-                            
-                            <MudText Typo="Typo.h6" Class="mb-2">@selectedCommunication.Subject</MudText>
-                            
-                            @if (!string.IsNullOrEmpty(selectedCommunication.Message))
-                            {
-                                <MudText Typo="Typo.body1" Class="mb-4">@selectedCommunication.Message</MudText>
-                            }
-                            
-                            <MudSimpleTable Hover="true" Dense="true" Class="mb-4">
-                                <tbody>
-                                    <tr>
-                                        <td style="font-weight: 600; width: 40%;">ID</td>
-                                        <td>@selectedCommunication.Id</td>
-                                    </tr>
-                                    <tr>
-                                        <td style="font-weight: 600;">Type</td>
-                                        <td>
-                                            <MudChip T="string" Size="Size.Small" Color="@GetTypeColor(selectedCommunication.TypeCode)">
-                                                @selectedCommunication.TypeCode
-                                            </MudChip>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td style="font-weight: 600;">Status</td>
-                                        <td>
-                                            <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(selectedCommunication.CurrentStatus)">
-                                                @selectedCommunication.CurrentStatus
-                                            </MudChip>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td style="font-weight: 600;">Recipient</td>
-                                        <td>@selectedCommunication.RecipientInfo</td>
-                                    </tr>
-                                    <tr>
-                                        <td style="font-weight: 600;">Created</td>
-                                        <td>
-                                            @selectedCommunication.CreatedUtc.ToString("MM/dd/yyyy hh:mm tt")
-                                            <MudText Typo="Typo.caption">by @selectedCommunication.CreatedByUserName</MudText>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td style="font-weight: 600;">Last Updated</td>
-                                        <td>@selectedCommunication.LastUpdatedUtc.ToString("MM/dd/yyyy hh:mm tt")</td>
-                                    </tr>
-                                </tbody>
-                            </MudSimpleTable>
-                            
-                            <MudDivider Class="my-4" />
-                            
-                            <MudText Typo="Typo.h6" Class="mb-3">Status History</MudText>
-                            
-                            <MudTimeline>
-                                <MudTimelineItem Color="Color.Success" Size="Size.Small">
-                                    <ItemContent>
-                                        <MudText Typo="Typo.subtitle2">Created</MudText>
-                                        <MudText Typo="Typo.body2" Color="Color.Primary">@selectedCommunication.CreatedUtc.ToString("MM/dd/yyyy hh:mm tt")</MudText>
-                                        <MudText Typo="Typo.caption">Initial creation by @selectedCommunication.CreatedByUserName</MudText>
-                                    </ItemContent>
-                                </MudTimelineItem>
-                                
-                                @* TODO: Add dynamic status history items here when backend integration is complete *@
-                                <MudTimelineItem Color="Color.Info" Size="Size.Small">
-                                    <ItemContent>
-                                        <MudText Typo="Typo.subtitle2">Ready for Release</MudText>
-                                        <MudText Typo="Typo.body2" Color="Color.Primary">@selectedCommunication.CreatedUtc.AddMinutes(30).ToString("MM/dd/yyyy hh:mm tt")</MudText>
-                                        <MudText Typo="Typo.caption">Approved and queued</MudText>
-                                    </ItemContent>
-                                </MudTimelineItem>
-                                
-                                <MudTimelineItem Color="@GetStatusColor(selectedCommunication.CurrentStatus)" Size="Size.Small">
-                                    <ItemContent>
-                                        <MudText Typo="Typo.subtitle2">@selectedCommunication.CurrentStatus</MudText>
-                                        <MudText Typo="Typo.body2" Color="Color.Primary">@selectedCommunication.LastUpdatedUtc.ToString("MM/dd/yyyy hh:mm tt")</MudText>
-                                        <MudText Typo="Typo.caption">Current status</MudText>
-                                    </ItemContent>
-                                </MudTimelineItem>
-                            </MudTimeline>
-                            
-                            <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-4"
-                                OnClick="@(() => ViewDetails(selectedCommunication.Id))">
-                                View Full Details
-                            </MudButton>
-                        </MudPaper>
+                        <TSG_Commex_FE.Components.Shared.CommunicationDetailView 
+                            Communication="selectedCommunication"
+                            ShowAdminDetails="false"
+                            UseTimelineView="true"
+                            ShowViewDetailsButton="true"
+                            AutoLoadHistory="true"
+                            OnClose="@(() => selectedCommunication = null)" />
                     </MudItem>
                 }
             </MudGrid>
@@ -247,25 +163,24 @@
     {
         return status.ToLower() switch
         {
-            "draft" or "created" => Color.Info,
-            "queued" or "pending" => Color.Warning,
-            "processing" or "in_transit" => Color.Primary,
-            "sent" or "delivered" => Color.Success,
-            "failed" or "error" => Color.Error,
-            "cancelled" => Color.Secondary,
+            "created" or "readyforrelease" => Color.Info,
+            "released" or "queuedforprinting" => Color.Warning,
+            "printed" or "inserted" or "warehouseready" => Color.Primary,
+            "shipped" or "intransit" => Color.Secondary,
+            "delivered" => Color.Success,
+            "returned" or "failed" or "cancelled" or "expired" => Color.Error,
+            "archived" => Color.Dark,
             _ => Color.Default
         };
     }
 
     private Color GetTypeColor(string typeCode)
     {
-        return typeCode.ToLower() switch
+        return typeCode switch
         {
-            "email" or "eob" => Color.Primary,
-            "sms" or "text" => Color.Success,
-            "push" => Color.Info,
-            "eop" => Color.Warning,
-            "id_card" => Color.Secondary,
+            "EOB" => Color.Primary,
+            "EOP" => Color.Secondary,
+            "ID_CARD" => Color.Tertiary,
             _ => Color.Default
         };
     }
