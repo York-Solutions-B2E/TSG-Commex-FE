@@ -6,11 +6,11 @@
 
 <PageTitle>Manage Communications</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.Large" Class="py-4">
+<MudContainer MaxWidth="MaxWidth.False" Class="pa-3">
     <MudText Typo="Typo.h4" Class="mb-4">Manage Communications</MudText>
     
     <!-- Add Communication Section -->
-    <MudPaper Class="pa-4 mb-4">
+    <MudPaper Class="pa-4 mb-3" Elevation="1">
         <MudText Typo="Typo.h6" Class="mb-3">Create New Communication</MudText>
         
         <MudForm @ref="form" @bind-IsValid="@isFormValid">
@@ -58,9 +58,9 @@
     </MudPaper>
     
     <!-- Communications List -->
-    <MudGrid>
-        <MudItem xs="12" md="@(selectedCommunication == null ? 12 : 7)">
-            <MudPaper Class="pa-4">
+    <MudGrid Spacing="3">
+        <MudItem xs="12" lg="@(selectedCommunication == null ? 12 : 8)">
+            <MudPaper Class="pa-4" Elevation="1" Style="height: calc(100vh - 350px); overflow-y: auto;">
                 <MudText Typo="Typo.h6" Class="mb-3">Existing Communications</MudText>
                 
                 @if (isLoading)
@@ -114,14 +114,16 @@
         
         @if (selectedCommunication != null)
         {
-            <MudItem xs="12" md="5">
-                <TSG_Commex_FE.Components.Shared.CommunicationDetailView 
-                    Communication="selectedCommunication"
-                    ShowAdminDetails="true"
-                    UseTimelineView="false"
-                    ShowViewDetailsButton="true"
-                    AutoLoadHistory="true"
-                    OnClose="@(() => { selectedCommunication = null; StateHasChanged(); })" />
+            <MudItem xs="12" lg="4">
+                <div style="height: calc(100vh - 350px); overflow-y: auto;">
+                    <TSG_Commex_FE.Components.Shared.CommunicationDetailView 
+                        Communication="selectedCommunication"
+                        ShowAdminDetails="true"
+                        UseTimelineView="false"
+                        ShowViewDetailsButton="true"
+                        AutoLoadHistory="true"
+                        OnClose="@(() => { selectedCommunication = null; StateHasChanged(); })" />
+                </div>
             </MudItem>
         }
     </MudGrid>
