@@ -1,6 +1,13 @@
 @page "/admin/status-taxonomy"
 @using Microsoft.AspNetCore.Authorization
 @using TSG_Commex_Shared.DTOs
+@using TSG_Commex_Shared.DTOs.Response
+@using TSG_Commex_Shared.DTOs.Request
+@using System.Net.Http.Json
+@inject IHttpClientFactory HttpClientFactory
+@inject ISnackbar Snackbar
+@inject ILogger<StatusTaxonomy> Logger
+@inject IDialogService DialogService
 @attribute [Authorize(Roles = "Admin")]
 
 <PageTitle>Status Taxonomy</PageTitle>
@@ -47,7 +54,7 @@
                             <MudText Typo="Typo.h6" Class="mt-2">Add New Type</MudText>
                         </MudCardContent>
                         <MudCardActions Class="justify-center">
-                            <MudButton Color="Color.Primary" Variant="Variant.Outlined">Create Type</MudButton>
+                            <MudButton Color="Color.Primary" Variant="Variant.Outlined" OnClick="OpenCreateDialog">Create Type</MudButton>
                         </MudCardActions>
                     </MudCard>
                 </MudItem>
@@ -172,11 +179,8 @@
 @code {
     private bool isLoadingTypes = true;
     private bool isLoadingStatuses = true;
-    private List<CommunicationTypeDto> communicationTypes = new();
-    private List<GlobalStatusDto> globalStatuses = new();
-    
-    [Inject] private IHttpClientFactory HttpClientFactory { get; set; }
-    [Inject] private ISnackbar Snackbar { get; set; }
+    private List<CommunicationTypeResponse> communicationTypes = new();
+    private List<GlobalStatusResponse> globalStatuses = new();
     
     protected override async Task OnInitializedAsync()
     {
@@ -189,16 +193,22 @@
         try
         {
             isLoadingTypes = true;
-            // For now, using mock data since the endpoint might not exist yet
-            communicationTypes = new List<CommunicationTypeDto>
+            var httpClient = HttpClientFactory.CreateClient("API");
+            var response = await httpClient.GetAsync("api/communication-types");
+            if (response.IsSuccessStatusCode)
             {
-                new() { TypeCode = "EOB", DisplayName = "Explanation of Benefits", Description = "Medical benefits explanation" },
-                new() { TypeCode = "EOP", DisplayName = "Explanation of Payments", Description = "Payment explanation document" },
-                new() { TypeCode = "ID_CARD", DisplayName = "ID Card", Description = "Member identification card" }
-            };
+                communicationTypes = await response.Content.ReadFromJsonAsync<List<CommunicationTypeResponse>>() ?? new();
+                Logger.LogInformation("Loaded {Count} communication types", communicationTypes.Count);
+            }
+            else
+            {
+                Logger.LogWarning("Failed to load communication types: {StatusCode}", response.StatusCode);
+                Snackbar.Add($"Failed to load communication types: {response.StatusCode}", Severity.Error);
+            }
         }
         catch (Exception ex)
         {
+            Logger.LogError(ex, "Error loading communication types");
             Snackbar.Add($"Error loading communication types: {ex.Message}", Severity.Error);
         }
         finally
@@ -212,34 +222,22 @@
         try
         {
             isLoadingStatuses = true;
-            // For now, using mock data
-            globalStatuses = new List<GlobalStatusDto>
+            var httpClient = HttpClientFactory.CreateClient("API");
+            var response = await httpClient.GetAsync("api/global-statuses");
+            if (response.IsSuccessStatusCode)
             {
-                // Creation Phase
-                new() { StatusCode = "Created", DisplayName = "Created", Description = "Initial creation", Phase = "Creation" },
-                new() { StatusCode = "ReadyForRelease", DisplayName = "Ready for Release", Description = "Ready to be released", Phase = "Creation" },
-                new() { StatusCode = "Released", DisplayName = "Released", Description = "Released to production", Phase = "Creation" },
-                
-                // Production Phase
-                new() { StatusCode = "QueuedForPrinting", DisplayName = "Queued for Printing", Description = "In print queue", Phase = "Production" },
-                new() { StatusCode = "Printed", DisplayName = "Printed", Description = "Document printed", Phase = "Production" },
-                new() { StatusCode = "Inserted", DisplayName = "Inserted", Description = "Inserted into envelope", Phase = "Production" },
-                new() { StatusCode = "WarehouseReady", DisplayName = "Warehouse Ready", Description = "Ready at warehouse", Phase = "Production" },
-                
-                // Logistics Phase
-                new() { StatusCode = "Shipped", DisplayName = "Shipped", Description = "Shipped to member", Phase = "Logistics" },
-                new() { StatusCode = "InTransit", DisplayName = "In Transit", Description = "In transit to member", Phase = "Logistics" },
-                new() { StatusCode = "Delivered", DisplayName = "Delivered", Description = "Delivered to member", Phase = "Logistics" },
-                new() { StatusCode = "Returned", DisplayName = "Returned", Description = "Returned to sender", Phase = "Logistics" },
-                
-                // Terminal Phase
-                new() { StatusCode = "Failed", DisplayName = "Failed", Description = "Processing failed", Phase = "Terminal" },
-                new() { StatusCode = "Cancelled", DisplayName = "Cancelled", Description = "Process cancelled", Phase = "Terminal" },
-                new() { StatusCode = "OnHold", DisplayName = "On Hold", Description = "Temporarily paused", Phase = "Terminal" }
-            };
+                globalStatuses = await response.Content.ReadFromJsonAsync<List<GlobalStatusResponse>>() ?? new();
+                Logger.LogInformation("Loaded {Count} global statuses", globalStatuses.Count);
+            }
+            else
+            {
+                Logger.LogWarning("Failed to load global statuses: {StatusCode}", response.StatusCode);
+                Snackbar.Add($"Failed to load global statuses: {response.StatusCode}", Severity.Error);
+            }
         }
         catch (Exception ex)
         {
+            Logger.LogError(ex, "Error loading global statuses");
             Snackbar.Add($"Error loading global statuses: {ex.Message}", Severity.Error);
         }
         finally
@@ -248,19 +246,22 @@
         }
     }
     
-    // DTOs - temporary until the shared DTOs are available
-    public class CommunicationTypeDto
+    private async Task OpenCreateDialog()
     {
-        public string TypeCode { get; set; } = string.Empty;
-        public string DisplayName { get; set; } = string.Empty;
-        public string Description { get; set; } = string.Empty;
-    }
-    
-    public class GlobalStatusDto
-    {
-        public string StatusCode { get; set; } = string.Empty;
-        public string DisplayName { get; set; } = string.Empty;
-        public string Description { get; set; } = string.Empty;
-        public string Phase { get; set; } = string.Empty;
+        var parameters = new DialogParameters();
+        var options = new DialogOptions 
+        { 
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true
+        };
+        
+        var dialog = await DialogService.ShowAsync<CreateCommunicationTypeDialog>("Create New Communication Type", parameters, options);
+        var result = await dialog.Result;
+        
+        if (!result.Canceled)
+        {
+            await LoadCommunicationTypes(); // Reload the list if a type was created
+        }
     }
 }
