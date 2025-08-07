@@ -6,7 +6,6 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
-using Microsoft.IdentityModel.Tokens;
 using MudBlazor.Services;
 using Okta.AspNetCore;
 var builder = WebApplication.CreateBuilder(args);
@@ -86,7 +85,7 @@ builder.Services.AddAuthentication(options =>
     ClientId = builder.Configuration["Okta:ClientId"],
     ClientSecret = builder.Configuration["Okta:ClientSecret"],
     AuthorizationServerId = "default",
-    Scope = new List<string> { "openid", "profile", "email", "offline_access" },
+    Scope = new List<string> { "openid", "profile", "email", "groups", "offline_access" },
     GetClaimsFromUserInfoEndpoint = true
 });
 
@@ -97,38 +96,22 @@ builder.Services.Configure<OpenIdConnectOptions>(OpenIdConnectDefaults.Authentic
     options.SignedOutCallbackPath = "/signout-callback-oidc";
     options.SignedOutRedirectUri = "/";
     
-    // Configure Token validation Parameters to accept groups in role based authorization
-    options.TokenValidationParameters = new TokenValidationParameters
-    {
-        RoleClaimType = "role" // Tell .NET to treat "role" claims as roles for authorization (using "role" for email-based assignment)
-    };
-    
-    // Add role assignment logic based on email (since groups scope caused issues)
+    // Map Okta groups to ASP.NET Core roles
     options.Events = new OpenIdConnectEvents()
     {
-        OnUserInformationReceived = context =>
+        OnTokenValidated = context =>
         {
-            // Define admin users (replace with your actual admin emails)
-            var admins = new string[]
+            // Map groups from ID token to roles (REQUIRED for role-based authorization)
+            var identity = context.Principal?.Identity as ClaimsIdentity;
+            var groupsClaims = context.Principal?.Claims
+                .Where(c => c.Type == "groups")
+                .Select(c => c.Value)
+                .ToList();
+            
+            foreach (var group in groupsClaims)
             {
-                "MandradeC@yorksolutions.net"           // Your admin email
-            };
-
-            var additionalClaims = new List<Claim>();
-            var email = context.Principal?.FindFirst("email")?.Value;
-
-            if (!string.IsNullOrEmpty(email) && admins.Contains(email, StringComparer.OrdinalIgnoreCase))
-            {
-                additionalClaims.Add(new Claim("role", "Admin"));
+                identity?.AddClaim(new Claim(ClaimTypes.Role, group));
             }
-            else
-            {
-                additionalClaims.Add(new Claim("role", "User"));
-            }
-
-            // Create new identity with additional claims
-            var newIdentity = new ClaimsIdentity(context.Principal?.Identity, additionalClaims, "pwd", "name", "role");
-            context.Principal = new ClaimsPrincipal(newIdentity);
 
             return Task.CompletedTask;
         }
