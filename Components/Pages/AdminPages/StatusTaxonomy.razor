@@ -32,15 +32,14 @@
                 @foreach (var type in communicationTypes)
                 {
                     <MudItem xs="12" sm="6" md="4">
-                        <MudCard>
+                        <MudCard Style="height: 100%;">
                             <MudCardContent>
                                 <MudText Typo="Typo.h6">@type.DisplayName</MudText>
                                 <MudText Typo="Typo.body2" Color="Color.Primary">@type.TypeCode</MudText>
                                 <MudText Typo="Typo.body2">@type.Description</MudText>
                             </MudCardContent>
                             <MudCardActions>
-                                <MudButton Color="Color.Primary" Size="Size.Small">Configure Statuses</MudButton>
-                                <MudButton Color="Color.Warning" Size="Size.Small" OnClick="@(() => OpenEditDialog(type))">Edit</MudButton>
+                                <MudButton Color="Color.Warning" Variant="Variant.Filled" Size="Size.Small" OnClick="@(() => OpenEditDialog(type))">Edit</MudButton>
                             </MudCardActions>
                         </MudCard>
                     </MudItem>
@@ -48,14 +47,11 @@
                 
                 <!-- Add New Type Card -->
                 <MudItem xs="12" sm="6" md="4">
-                    <MudCard Style="border: 2px dashed #ccc; background-color: #fafafa;">
+                    <MudCard Class="add-type-card" Style="border: 2px dashed #ccc; background-color: #fafafa; height: 100%; cursor: pointer; transition: all 0.2s ease;" @onclick="OpenCreateDialog">
                         <MudCardContent Class="d-flex flex-column align-center justify-center" Style="min-height: 150px;">
                             <MudIcon Icon="@Icons.Material.Filled.Add" Size="Size.Large" Color="Color.Primary" />
                             <MudText Typo="Typo.h6" Class="mt-2">Add New Type</MudText>
                         </MudCardContent>
-                        <MudCardActions Class="justify-center">
-                            <MudButton Color="Color.Primary" Variant="Variant.Outlined" OnClick="OpenCreateDialog">Create Type</MudButton>
-                        </MudCardActions>
                     </MudCard>
                 </MudItem>
             </MudGrid>
@@ -287,3 +283,10 @@
         }
     }
 }
+
+<style>
+    .add-type-card:hover {
+        background-color: #f0f0f0 !important;
+        border-color: #999 !important;
+    }
+</style>

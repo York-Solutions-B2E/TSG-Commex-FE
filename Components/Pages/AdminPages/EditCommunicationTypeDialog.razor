@@ -32,6 +32,35 @@
                          Immediate="true"
                          Class="mb-4" />
             
+            <MudSelect T="int" @bind-SelectedValues="selectedStatusIds" 
+                      Label="Valid Statuses" 
+                      MultiSelection="true"
+                      SelectAll="true"
+                      SelectAllText="Select all statuses"
+                      HelperText="Select which statuses are valid for this communication type"
+                      Class="mb-4"
+                      Variant="Variant.Outlined"
+                      AdornmentIcon="@Icons.Material.Filled.CheckBox"
+                      AnchorOrigin="Origin.BottomCenter"
+                      ToStringFunc="@GetStatusDisplayName">
+                @if (isLoadingStatuses)
+                {
+                    <MudProgressLinear Indeterminate="true" />
+                }
+                else
+                {
+                    @foreach (var status in globalStatuses)
+                    {
+                        <MudSelectItem T="int" Value="@status.Id">
+                            <div>
+                                <MudText Typo="Typo.body1">@status.DisplayName</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">@status.Phase - @status.Description</MudText>
+                            </div>
+                        </MudSelectItem>
+                    }
+                }
+            </MudSelect>
+            
             <MudTextField @bind-Value="model.Description" 
                          Label="Description" 
                          Required="true"
@@ -69,9 +98,12 @@
     private UpdateCommunicationTypeRequest model = new();
     private bool isValid;
     private bool isProcessing;
+    private bool isLoadingStatuses = true;
     private MudForm? form;
+    private IEnumerable<int> selectedStatusIds = new HashSet<int>();
+    private List<GlobalStatusResponse> globalStatuses = new();
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         // Initialize the model with existing values
         if (CommunicationType != null)
@@ -79,7 +111,52 @@
             model.TypeCode = CommunicationType.TypeCode;
             model.DisplayName = CommunicationType.DisplayName;
             model.Description = CommunicationType.Description;
+            
+            // Set the selected status IDs
+            if (CommunicationType.AssignedStatusIds != null)
+            {
+                selectedStatusIds = new HashSet<int>(CommunicationType.AssignedStatusIds);
+            }
         }
+        
+        // Load all global statuses
+        await LoadGlobalStatuses();
+    }
+    
+    private async Task LoadGlobalStatuses()
+    {
+        try
+        {
+            isLoadingStatuses = true;
+            var httpClient = HttpClientFactory.CreateClient("API");
+            var response = await httpClient.GetAsync("api/global-statuses");
+            
+            if (response.IsSuccessStatusCode)
+            {
+                globalStatuses = await response.Content.ReadFromJsonAsync<List<GlobalStatusResponse>>() ?? new();
+                Logger.LogInformation("Loaded {Count} global statuses", globalStatuses.Count);
+            }
+            else
+            {
+                Logger.LogWarning("Failed to load global statuses");
+                Snackbar.Add("Failed to load statuses", Severity.Warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading global statuses");
+            Snackbar.Add($"Error loading statuses: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isLoadingStatuses = false;
+        }
+    }
+
+    private string GetStatusDisplayName(int statusId)
+    {
+        var status = globalStatuses.FirstOrDefault(s => s.Id == statusId);
+        return status?.DisplayName ?? statusId.ToString();
     }
 
     private void Cancel()
@@ -101,10 +178,23 @@
             isProcessing = true;
             
             var httpClient = HttpClientFactory.CreateClient("API");
+            
+            // Update the type details
             var response = await httpClient.PutAsJsonAsync($"api/communication-types/{CommunicationType.Id}", model);
             
             if (response.IsSuccessStatusCode)
             {
+                // Update the status mappings
+                var statusRequest = new UpdateTypeStatusesRequest { StatusIds = selectedStatusIds.ToList() };
+                var statusResponse = await httpClient.PutAsJsonAsync($"api/communication-types/{CommunicationType.Id}/statuses", statusRequest);
+                
+                if (!statusResponse.IsSuccessStatusCode)
+                {
+                    var statusError = await statusResponse.Content.ReadAsStringAsync();
+                    Logger.LogWarning("Failed to update statuses: {Error}", statusError);
+                    Snackbar.Add($"Type updated but statuses failed: {statusError}", Severity.Warning);
+                }
+                
                 Logger.LogInformation("Updated communication type: {OldTypeCode} -> {NewTypeCode}", CommunicationType.TypeCode, model.TypeCode);
                 Snackbar.Add($"Communication type '{model.DisplayName}' updated successfully!", Severity.Success);
                 MudDialog.Close(DialogResult.Ok(true));
