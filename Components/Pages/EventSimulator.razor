@@ -8,6 +8,7 @@
 @inject ILogger<EventSimulator> Logger
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @attribute [Authorize(Roles = "Admin")]
+@implements IDisposable
 
 <PageTitle>Event Simulator</PageTitle>
 
@@ -46,7 +47,7 @@
                                     <MudSelectItem Value="@comm">
                                         <div class="d-flex align-center justify-space-between">
                                             <div>
-                                                <MudText Typo="Typo.body2">#{comm.Id} - @comm.Subject</MudText>
+                                                <MudText Typo="Typo.body2">@comm.Subject</MudText>
                                                 <MudText Typo="Typo.caption">Type: @comm.TypeCode | Status: @comm.CurrentStatus</MudText>
                                             </div>
                                         </div>
@@ -102,7 +103,11 @@
             
             <MudItem xs="12" md="6">
                 <MudPaper Elevation="2" Class="pa-4">
-                    <MudText Typo="Typo.h5" Class="mb-3">Event History</MudText>
+                    <div class="d-flex justify-space-between align-center mb-3">
+                        <MudText Typo="Typo.h5">Event History</MudText>
+                        <MudSwitch Value="autoRefresh" Color="Color.Primary" Label="Auto-refresh" 
+                                   ValueChanged="@(async (bool value) => await ToggleAutoRefresh(value))" />
+                    </div>
                     
                     @if (eventHistory.Any())
                     {
@@ -165,9 +170,15 @@
     // Event history
     private List<EventHistoryItem> eventHistory = new();
     
+    // Auto-refresh timer
+    private System.Threading.Timer? refreshTimer;
+    private bool autoRefresh = false;
+    
     protected override async Task OnInitializedAsync()
     {
         await LoadCommunications();
+        // LoadRecentEvents now uses the already loaded communications
+        await LoadRecentEvents();
     }
     
     private async Task OnCommunicationSelected(CommunicationResponse communication)
@@ -193,6 +204,9 @@
             
             // Load available statuses for this communication type
             await LoadStatusesForType(communication.TypeCode);
+            
+            // Load actual status history for this communication
+            await LoadCommunicationHistory(communication.Id);
         }
     }
     
@@ -230,6 +244,115 @@
             Logger.LogError(ex, "Error loading communications");
             availableCommunications = new List<CommunicationResponse>();
             StateHasChanged(); // Force UI update
+        }
+    }
+    
+    private async Task LoadCommunicationHistory(int communicationId)
+    {
+        try
+        {
+            Logger.LogInformation("Loading status history for communication {Id}", communicationId);
+            var httpClient = HttpClientFactory.CreateClient("API");
+            var statusHistory = await httpClient.GetFromJsonAsync<List<CommunicationStatusHistory>>(
+                $"api/communications/{communicationId}/status-history");
+            
+            // Clear existing history and populate with actual data from API
+            eventHistory.Clear();
+            
+            if (statusHistory != null && statusHistory.Any())
+            {
+                foreach (var history in statusHistory.OrderByDescending(h => h.OccurredUtc))
+                {
+                    eventHistory.Add(new EventHistoryItem
+                    {
+                        CommunicationId = history.CommunicationId.ToString(),
+                        CommunicationSubject = selectedCommunication?.Subject ?? "Unknown",
+                        EventName = history.EventSource ?? "System",
+                        NewStatus = history.StatusCode,
+                        Notes = history.Notes ?? "",
+                        Timestamp = history.OccurredUtc.ToLocalTime(),
+                        Success = true
+                    });
+                }
+                
+                Logger.LogInformation("Loaded {Count} history records for communication {Id}", 
+                    statusHistory.Count, communicationId);
+                Console.WriteLine($"{"✅ Loaded".Pastel("#00FF00")} {statusHistory.Count} {"history records".Pastel("#FFFFFF")}");
+            }
+            else
+            {
+                Logger.LogInformation("No history found for communication {Id}", communicationId);
+                Console.WriteLine($"{"ℹ️ No history found for this communication".Pastel("#FFFF00")}");
+            }
+            
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading communication history for {Id}", communicationId);
+            Console.WriteLine($"{"❌ Error loading history:".Pastel("#FF0000")} {ex.Message}");
+        }
+    }
+    
+    private async Task LoadRecentEvents()
+    {
+        try
+        {
+            Logger.LogInformation("Loading recent events across all communications");
+            
+            // Use the already loaded communications instead of fetching again
+            if (availableCommunications != null && availableCommunications.Any())
+            {
+                var httpClient = HttpClientFactory.CreateClient("API");
+                eventHistory.Clear();
+                
+                // For each communication, get its history (limited to recent items)
+                foreach (var comm in availableCommunications.Take(10)) // Limit to 10 most recent communications
+                {
+                    try
+                    {
+                        var statusHistory = await httpClient.GetFromJsonAsync<List<CommunicationStatusHistory>>(
+                            $"api/communications/{comm.Id}/status-history");
+                        
+                        if (statusHistory != null && statusHistory.Any())
+                        {
+                            // Add only the most recent events for each communication
+                            foreach (var history in statusHistory.OrderByDescending(h => h.OccurredUtc).Take(3))
+                            {
+                                eventHistory.Add(new EventHistoryItem
+                                {
+                                    CommunicationId = history.CommunicationId.ToString(),
+                                    CommunicationSubject = comm.Subject,
+                                    EventName = history.EventSource ?? "System",
+                                    NewStatus = history.StatusCode,
+                                    Notes = history.Notes ?? "",
+                                    Timestamp = history.OccurredUtc.ToLocalTime(),
+                                    Success = true
+                                });
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogWarning(ex, "Failed to load history for communication {Id}", comm.Id);
+                    }
+                }
+                
+                // Sort all events by timestamp descending
+                eventHistory = eventHistory.OrderByDescending(e => e.Timestamp).Take(20).ToList();
+                
+                Logger.LogInformation("Loaded {Count} recent events", eventHistory.Count);
+                StateHasChanged();
+            }
+            else
+            {
+                Logger.LogInformation("No communications available to load events from");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading recent events");
+            // Don't clear history on error, keep whatever we have
         }
     }
     
@@ -301,20 +424,11 @@
             {
                 resultMessage = $"✅ Event '{selectedEvent}' published successfully! Communication #{selectedCommunication.Id} status will change to {eventOption.ResultingStatus}";
                 
-                // Add to history
-                eventHistory.Insert(0, new EventHistoryItem
-                {
-                    CommunicationId = selectedCommunication.Id.ToString(),
-                    CommunicationSubject = selectedCommunication.Subject,
-                    EventName = selectedEvent,
-                    NewStatus = eventOption.ResultingStatus,
-                    Notes = notes,
-                    Timestamp = DateTime.Now,
-                    Success = true
-                });
-                
                 // Log before clearing
                 Logger.LogInformation("Successfully sent event {Event} for communication {CommunicationId}", selectedEvent, selectedCommunication.Id);
+                
+                // Store the communication ID before clearing
+                var communicationId = selectedCommunication.Id;
                 
                 // Clear form
                 selectedCommunication = null;
@@ -322,25 +436,25 @@
                 notes = "";
                 await form.ResetAsync();
                 
+                // Force immediate UI update to show the success message
+                StateHasChanged();
+                
+                // Small delay to let the backend process the event
+                await Task.Delay(500);
+                
                 // Reload communications to reflect changes
                 await LoadCommunications();
+                
+                // Reload the history to show the new event
+                await LoadCommunicationHistory(communicationId);
+                
+                // Force another UI update with the refreshed data
+                StateHasChanged();
             }
             else
             {
                 isError = true;
                 resultMessage = $"❌ Failed to publish event: {response.StatusCode}";
-                
-                eventHistory.Insert(0, new EventHistoryItem
-                {
-                    CommunicationId = selectedCommunication.Id.ToString(),
-                    CommunicationSubject = selectedCommunication.Subject,
-                    EventName = selectedEvent,
-                    NewStatus = eventOption.ResultingStatus,
-                    Notes = notes,
-                    Timestamp = DateTime.Now,
-                    Success = false
-                });
-                
                 Logger.LogError("Failed to send event: {StatusCode}", response.StatusCode);
             }
         }
@@ -415,6 +529,48 @@
     }
     
     // Helper classes
+    private Task ToggleAutoRefresh(bool value)
+    {
+        autoRefresh = value;
+        
+        if (autoRefresh)
+        {
+            // Create a timer that refreshes every 5 seconds
+            refreshTimer = new System.Threading.Timer(async _ =>
+            {
+                await InvokeAsync(async () =>
+                {
+                    await LoadCommunications();
+                    if (selectedCommunication != null)
+                    {
+                        await LoadCommunicationHistory(selectedCommunication.Id);
+                    }
+                    else
+                    {
+                        await LoadRecentEvents();
+                    }
+                    StateHasChanged();
+                });
+            }, null, TimeSpan.Zero, TimeSpan.FromSeconds(5));
+            
+            Logger.LogInformation("Auto-refresh enabled");
+        }
+        else
+        {
+            // Stop the timer
+            refreshTimer?.Dispose();
+            refreshTimer = null;
+            Logger.LogInformation("Auto-refresh disabled");
+        }
+        
+        return Task.CompletedTask;
+    }
+    
+    public void Dispose()
+    {
+        refreshTimer?.Dispose();
+    }
+    
     private record EventOption(string EventName, string ResultingStatus);
     
     private class EventHistoryItem
