@@ -141,17 +141,6 @@
                 </MudPaper>
             </MudItem>
         </MudGrid>
-        
-        <MudPaper Elevation="2" Class="pa-4 mt-4">
-            <MudText Typo="Typo.h5" Class="mb-3">Quick Test</MudText>
-            <MudText Typo="Typo.body1" Class="mb-3">
-                Use this button to quickly test the event system with predefined values.
-            </MudText>
-            <MudButton Variant="Variant.Outlined" Color="Color.Secondary" 
-                OnClick="QuickTest" Disabled="@isProcessing">
-                Send Test Event
-            </MudButton>
-        </MudPaper>
 
 @code {
     private MudForm form = null!;
@@ -256,6 +245,10 @@
             var statusHistory = await httpClient.GetFromJsonAsync<List<CommunicationStatusHistory>>(
                 $"api/communications/{communicationId}/status-history");
             
+            // If selectedCommunication is null, try to find it from the loaded communications
+            var communication = selectedCommunication ?? 
+                                availableCommunications?.FirstOrDefault(c => c.Id == communicationId);
+            
             // Clear existing history and populate with actual data from API
             eventHistory.Clear();
             
@@ -266,7 +259,7 @@
                     eventHistory.Add(new EventHistoryItem
                     {
                         CommunicationId = history.CommunicationId.ToString(),
-                        CommunicationSubject = selectedCommunication?.Subject ?? "Unknown",
+                        CommunicationSubject = communication?.Subject ?? $"Communication #{communicationId}",
                         EventName = history.EventSource ?? "System",
                         NewStatus = history.StatusCode,
                         Notes = history.Notes ?? "",
@@ -427,14 +420,25 @@
                 // Log before clearing
                 Logger.LogInformation("Successfully sent event {Event} for communication {CommunicationId}", selectedEvent, selectedCommunication.Id);
                 
-                // Store the communication ID before clearing
+                // Store the communication details before clearing
                 var communicationId = selectedCommunication.Id;
+                var communicationSubject = selectedCommunication.Subject;
                 
-                // Clear form
-                selectedCommunication = null;
+                // Add the event to history immediately with proper subject
+                eventHistory.Insert(0, new EventHistoryItem
+                {
+                    CommunicationId = communicationId.ToString(),
+                    CommunicationSubject = communicationSubject,
+                    EventName = selectedEvent,
+                    NewStatus = eventOption.ResultingStatus,
+                    Notes = string.IsNullOrWhiteSpace(notes) ? "" : notes,
+                    Timestamp = DateTime.Now,
+                    Success = true
+                });
+                
+                // Clear only the event and notes, keep the communication selected
                 selectedEvent = "";
                 notes = "";
-                await form.ResetAsync();
                 
                 // Force immediate UI update to show the success message
                 StateHasChanged();
@@ -442,11 +446,20 @@
                 // Small delay to let the backend process the event
                 await Task.Delay(500);
                 
-                // Reload communications to reflect changes
+                // Reload communications to reflect the status change
                 await LoadCommunications();
+                
+                // Update the selected communication with the refreshed data
+                selectedCommunication = availableCommunications?.FirstOrDefault(c => c.Id == communicationId);
                 
                 // Reload the history to show the new event
                 await LoadCommunicationHistory(communicationId);
+                
+                // Reload available statuses in case they changed
+                if (selectedCommunication != null)
+                {
+                    await LoadStatusesForType(selectedCommunication.TypeCode);
+                }
                 
                 // Force another UI update with the refreshed data
                 StateHasChanged();
@@ -463,49 +476,6 @@
             isError = true;
             resultMessage = $"❌ Error: {ex.Message}";
             Logger.LogError(ex, "Error sending event");
-        }
-        finally
-        {
-            isProcessing = false;
-            StateHasChanged();
-        }
-    }
-    
-    private async Task QuickTest()
-    {
-        isProcessing = true;
-        isError = false;
-        resultMessage = null;
-        
-        try
-        {
-            var httpClient = HttpClientFactory.CreateClient("API");
-            var response = await httpClient.GetAsync("api/events/test");
-            
-            if (response.IsSuccessStatusCode)
-            {
-                resultMessage = "✅ Test event sent successfully! Check your backend logs for confirmation.";
-                
-                eventHistory.Insert(0, new EventHistoryItem
-                {
-                    CommunicationId = "1",
-                    NewStatus = "Printed",
-                    Notes = "Quick test event",
-                    Timestamp = DateTime.Now,
-                    Success = true
-                });
-            }
-            else
-            {
-                isError = true;
-                resultMessage = $"❌ Test failed: {response.StatusCode}";
-            }
-        }
-        catch (Exception ex)
-        {
-            isError = true;
-            resultMessage = $"❌ Error: {ex.Message}";
-            Logger.LogError(ex, "Error sending test event");
         }
         finally
         {

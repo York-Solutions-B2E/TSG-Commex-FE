@@ -1,6 +1,8 @@
 html,
 body {
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background-color: #FDFDF7 !important;
+    min-height: 100vh;
 }
 
 a,
@@ -229,4 +231,218 @@ h1:focus {
 
 .admin-search-field .mud-input-outlined:hover {
     border-color: #3b82f6 !important;
+}
+
+/* MudTabs background override - force all tab elements to use cream */
+.mud-tabs,
+.mud-tabs-panels,
+.mud-tabs-toolbar,
+.mud-tabs-wrapper,
+.mud-paper,
+.mud-paper-root {
+    background-color: #FDFDF7 !important;
+    background: #FDFDF7 !important;
+}
+
+/* Tab styling - active vs inactive */
+.mud-tab {
+    background-color: transparent !important;
+    color: #999999 !important;
+    opacity: 0.6;
+}
+
+.mud-tab .mud-tab-icon {
+    color: #999999 !important;
+}
+
+.mud-tab:hover {
+    opacity: 0.8;
+    background-color: rgba(0, 0, 0, 0.02) !important;
+}
+
+.mud-tab.mud-tab-active {
+    background-color: transparent !important;
+    color: #000000 !important;
+    opacity: 1;
+    border-bottom: 2px solid #000000 !important;
+}
+
+.mud-tab.mud-tab-active .mud-tab-icon {
+    color: #000000 !important;
+}
+
+/* Tab slider/indicator - hide default and use border instead */
+.mud-tabs-slider {
+    display: none !important;
+}
+
+/* Card styling - black borders */
+.mud-card {
+    border: 1px solid #000000 !important;
+    box-shadow: none !important;
+}
+
+.mud-paper:not(.mud-appbar):not(.mud-drawer) {
+    border: 1px solid #000000 !important;
+    box-shadow: none !important;
+}
+
+/* Remove colors from buttons - make them black/white */
+.mud-button {
+    color: #000000 !important;
+    background-color: transparent !important;
+    border: 1px solid #000000 !important;
+}
+
+.mud-button:hover {
+    background-color: #000000 !important;
+    color: #FDFDF7 !important;
+}
+
+.mud-button-filled {
+    background-color: #000000 !important;
+    color: #FDFDF7 !important;
+    border: 1px solid #000000 !important;
+}
+
+.mud-button-filled:hover {
+    background-color: #333333 !important;
+    color: #FDFDF7 !important;
+}
+
+/* Ensure all button text colors are overridden */
+.mud-button-text-primary,
+.mud-button-text-secondary,
+.mud-button-text-tertiary,
+.mud-button-text-info,
+.mud-button-text-success,
+.mud-button-text-warning,
+.mud-button-text-error,
+.mud-button-text-dark,
+.mud-button-text-inherit {
+    color: #000000 !important;
+}
+
+/* Button variants */
+.mud-button-outlined {
+    color: #000000 !important;
+    border: 1px solid #000000 !important;
+    background-color: transparent !important;
+}
+
+.mud-button-outlined:hover {
+    background-color: #000000 !important;
+    color: #FDFDF7 !important;
+}
+
+/* Card action buttons specifically */
+.mud-card-actions .mud-button {
+    color: #000000 !important;
+    width: 100% !important;
+}
+
+.mud-card-actions .mud-button:hover {
+    background-color: #000000 !important;
+    color: #FDFDF7 !important;
+}
+
+/* Make card actions take full width */
+.mud-card-actions {
+    padding: 8px !important;
+}
+
+/* Full width for filled buttons in cards */
+.mud-card .mud-button-filled,
+.mud-card .mud-button-filled-warning,
+.mud-card .mud-button-filled-primary {
+    width: 100% !important;
+}
+
+/* Filled variant buttons - ensure white text on dark backgrounds */
+.mud-button-filled-primary,
+.mud-button-filled-secondary,
+.mud-button-filled-tertiary,
+.mud-button-filled-info,
+.mud-button-filled-success,
+.mud-button-filled-warning,
+.mud-button-filled-error,
+.mud-button-filled-dark {
+    background-color: #000000 !important;
+    color: #FFFFFF !important;
+    border: none !important;
+}
+
+/* Force all text inside filled buttons to be white */
+.mud-button-filled-primary *,
+.mud-button-filled-secondary *,
+.mud-button-filled-tertiary *,
+.mud-button-filled-info *,
+.mud-button-filled-success *,
+.mud-button-filled-warning *,
+.mud-button-filled-error *,
+.mud-button-filled-dark * {
+    color: #FFFFFF !important;
+}
+
+.mud-button-filled-primary:hover,
+.mud-button-filled-secondary:hover,
+.mud-button-filled-tertiary:hover,
+.mud-button-filled-info:hover,
+.mud-button-filled-success:hover,
+.mud-button-filled-warning:hover,
+.mud-button-filled-error:hover,
+.mud-button-filled-dark:hover {
+    background-color: #333333 !important;
+    color: #FFFFFF !important;
+}
+
+/* Specific fix for Status Taxonomy buttons - use attribute selector */
+.mud-button[class*="filled"] {
+    background-color: #000000 !important;
+    color: #FFFFFF !important;
+}
+
+.mud-button[class*="filled"] .mud-button-label {
+    color: #FFFFFF !important;
+}
+
+/* Target MudButton with Variant="Filled" specifically */
+.mud-button-root.mud-button-filled {
+    background-color: #000000 !important;
+    color: #FFFFFF !important;
+}
+
+.mud-button-root.mud-button-filled .mud-button-label {
+    color: #FFFFFF !important;
+}
+
+/* Icon buttons - remove colors */
+.mud-icon-button {
+    color: #000000 !important;
+}
+
+.mud-icon-button:hover {
+    background-color: rgba(0, 0, 0, 0.04) !important;
+}
+
+/* All icons - make them black */
+.mud-icon-root {
+    color: #000000 !important;
+}
+
+/* Chips - black and white */
+.mud-chip {
+    background-color: transparent !important;
+    color: #000000 !important;
+    border: 1px solid #000000 !important;
+}
+
+/* FAB buttons */
+.mud-fab {
+    background-color: #000000 !important;
+    color: #FDFDF7 !important;
+}
+
+.mud-fab:hover {
+    background-color: #333333 !important;
 }

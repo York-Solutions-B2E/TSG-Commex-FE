@@ -5,38 +5,38 @@
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @implements IDisposable
 
-<MudThemeProvider />
+<MudThemeProvider Theme="@_theme" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
 
-<MudLayout>
-    <MudAppBar Elevation="1" Color="Color.Primary" Fixed="true">
-        <MudText Typo="Typo.h5" Class="ml-3">Commex Lifecycle</MudText>
+<MudLayout Style="background-color: #FDFDF7;">
+    <MudAppBar Elevation="1" Fixed="true" Style="background-color: #FDFDF7; color: #333333; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+        <MudText Typo="Typo.h5" Class="ml-3" Style="color: #333333;">Commex Lifecycle</MudText>
         <MudSpacer />
         <AuthorizeView>
             <Authorized>
-                <MudButton Color="Color.Inherit" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Logout"
-                    OnClick="Logout">
+                <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Logout"
+                    OnClick="Logout" Style="color: #333333;">
                     Logout
                 </MudButton>
             </Authorized>
             <NotAuthorized>
-                <MudButton Color="Color.Inherit" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Login"
-                    OnClick="Login">
+                <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Login"
+                    OnClick="Login" Style="color: #333333;">
                     Login
                 </MudButton>
             </NotAuthorized>
         </AuthorizeView>
     </MudAppBar>
 
-    <MudMainContent>
-        <MudPaper Elevation="2" Square="true"
-            Style="position: sticky; top: 64px; z-index: 100; background-color: white;">
+    <MudMainContent Style="background-color: #FDFDF7; min-height: 100vh;">
+        <div style="position: sticky; top: 64px; z-index: 100; background-color: #FDFDF7 !important; border-bottom: 1px solid rgba(0,0,0,0.1);">
             <AuthorizeView>
                 <Authorized>
                     <MudTabs Elevation="0" Rounded="false" Centered="false" ApplyEffectsToContainer="false"
-                        ActivePanelIndex="activeTab" ActivePanelIndexChanged="OnTabChanged">
+                        ActivePanelIndex="activeTab" ActivePanelIndexChanged="OnTabChanged"
+                        Class="custom-tabs">
                         @if (context.User.IsInRole("Admin"))
                         {
                             <MudTabPanel Text="Event Simulator" Icon="@Icons.Material.Filled.Science" />
@@ -51,12 +51,13 @@
                 </Authorized>
                 <NotAuthorized>
                     <MudTabs Elevation="0" Rounded="false" Centered="false" ApplyEffectsToContainer="false"
-                        ActivePanelIndex="0">
+                        ActivePanelIndex="0"
+                        Class="custom-tabs">
                         <MudTabPanel Text="Please Login" Icon="@Icons.Material.Filled.Lock" />
                     </MudTabs>
                 </NotAuthorized>
             </AuthorizeView>
-        </MudPaper>
+        </div>
 
         <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="my-4">
             @Body
@@ -73,6 +74,60 @@
 @code {
     private int activeTab = 0;
     private bool isAdmin = false;
+    
+    private MudTheme _theme = new MudTheme()
+    {
+        PaletteLight = new PaletteLight()
+        {
+            Background = "#FDFDF7",
+            Surface = "#FDFDF7",
+            AppbarBackground = "#1976d2",
+            AppbarText = "#FFFFFF",
+            Primary = "#1976d2",
+            Secondary = "#424242",
+            Tertiary = "#594AE2",
+            Info = "#2196F3",
+            Success = "#4CAF50",
+            Warning = "#FF9800",
+            Error = "#F44336",
+            Dark = "#424242",
+            TextPrimary = "rgba(0, 0, 0, 0.87)",
+            TextSecondary = "rgba(0, 0, 0, 0.54)",
+            TextDisabled = "rgba(0, 0, 0, 0.38)",
+            DrawerBackground = "#FDFDF7",
+            DrawerText = "rgba(0, 0, 0, 0.87)",
+            DrawerIcon = "rgba(0, 0, 0, 0.54)",
+            ActionDefault = "#757575",
+            ActionDisabled = "rgba(0, 0, 0, 0.26)",
+            ActionDisabledBackground = "rgba(0, 0, 0, 0.12)",
+            Divider = "rgba(0, 0, 0, 0.12)",
+            DividerLight = "rgba(0, 0, 0, 0.06)",
+            TableLines = "rgba(0, 0, 0, 0.12)",
+            TableStriped = "rgba(0, 0, 0, 0.02)",
+            TableHover = "rgba(0, 0, 0, 0.04)",
+            LinesDefault = "rgba(0, 0, 0, 0.12)",
+            LinesInputs = "rgba(0, 0, 0, 0.42)",
+            GrayDefault = "#757575",
+            GrayLight = "#BDBDBD",
+            GrayLighter = "#E0E0E0",
+            GrayDark = "#424242",
+            GrayDarker = "#212121",
+            OverlayDark = "rgba(0, 0, 0, 0.5)",
+            OverlayLight = "rgba(255, 255, 255, 0.5)",
+            HoverOpacity = 0.04
+        },
+        Typography = new Typography()
+        {
+            Default = new Default()
+            {
+                FontFamily = new[] { "Inter", "Roboto", "Helvetica", "Arial", "sans-serif" },
+                FontSize = "0.875rem",
+                FontWeight = 400,
+                LineHeight = 1.43,
+                LetterSpacing = "0.01071em"
+            }
+        }
+    };
 
     protected override async Task OnInitializedAsync()
     {
@@ -156,3 +211,38 @@
         Navigation.LocationChanged -= OnLocationChanged;
     }
 }
+
+<style>
+    /* Force cream background on all tab-related elements */
+    ::deep .mud-tabs {
+        background-color: #FDFDF7 !important;
+    }
+    
+    ::deep .mud-tabs-toolbar {
+        background-color: #FDFDF7 !important;
+    }
+    
+    ::deep .mud-tabs-panels {
+        background-color: #FDFDF7 !important;
+    }
+    
+    ::deep .mud-tab {
+        background-color: transparent !important;
+    }
+    
+    ::deep .mud-paper {
+        background-color: #FDFDF7 !important;
+    }
+    
+    ::deep .custom-tabs {
+        background-color: #FDFDF7 !important;
+    }
+    
+    ::deep .custom-tabs .mud-tabs-toolbar {
+        background-color: #FDFDF7 !important;
+    }
+    
+    ::deep .custom-tabs .mud-paper-root {
+        background-color: #FDFDF7 !important;
+    }
+</style>
