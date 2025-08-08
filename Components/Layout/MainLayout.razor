@@ -126,7 +126,7 @@
             url = index switch
             {
                 0 => "/event-simulator",
-                1 => "/admin",
+                1 => "/admin",  // Always go to main admin page, not subpages
                 2 => "/debug",
                 _ => "/admin"
             };
@@ -137,7 +137,8 @@
             url = "/communications";
         }
         
-        Navigation.NavigateTo(url);
+        // Force navigation even if already on an admin subpage
+        Navigation.NavigateTo(url, forceLoad: false);
     }
 
     private void Login()

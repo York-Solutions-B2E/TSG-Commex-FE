@@ -102,6 +102,25 @@
                 </div>
             </MudPaper>
 
+            <!-- Member Management -->
+            <MudPaper Class="admin-feature-card clickable-card" Elevation="2"
+                @onclick="@(() => NavigationManager.NavigateTo("/admin/members"))">
+                <div class="admin-feature-content">
+                    <div class="admin-feature-icon">
+                        <MudIcon Icon="@Icons.Material.Filled.People" Size="Size.Large" Color="Color.Info" />
+                    </div>
+                    <h3 class="admin-feature-title">Member Management</h3>
+                    <p class="admin-feature-description">
+                        Manage system members and their information.
+                        Add, edit, or deactivate member accounts.
+                    </p>
+                    <div class="admin-feature-action">
+                        <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Color="Color.Primary" />
+                        <span style="margin-left: 8px; color: var(--mud-palette-primary);">Manage Members</span>
+                    </div>
+                </div>
+            </MudPaper>
+
         </div>
     </div>
 </div>

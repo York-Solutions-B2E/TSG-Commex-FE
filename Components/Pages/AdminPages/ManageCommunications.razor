@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @using Microsoft.AspNetCore.Authorization
 @using TSG_Commex_Shared.DTOs
+@using TSG_Commex_Shared.DTOs.Response
 @attribute [Authorize(Roles = "Admin")]
 
 <PageTitle>Manage Communications</PageTitle>
@@ -16,11 +17,15 @@
         <MudForm @ref="form" @bind-IsValid="@isFormValid">
             <MudGrid>
                 <MudItem xs="12" sm="6" md="3">
-                    <MudSelect T="string" Label="Communication Type" @bind-Value="newCommunication.TypeCode" Required="true" 
+                    <MudSelect T="int?" Label="Communication Type" @bind-Value="newCommunication.CommunicationTypeId" Required="true" 
                                RequiredError="Communication type is required">
-                        <MudSelectItem Value="@("EOB")">EOB - Explanation of Benefits</MudSelectItem>
-                        <MudSelectItem Value="@("EOP")">EOP - Explanation of Payments</MudSelectItem>
-                        <MudSelectItem Value="@("ID_CARD")">ID Card</MudSelectItem>
+                        @if (communicationTypes != null)
+                        {
+                            @foreach (var type in communicationTypes)
+                            {
+                                <MudSelectItem Value="@((int?)type.Id)">@type.DisplayName (@type.TypeCode)</MudSelectItem>
+                            }
+                        }
                     </MudSelect>
                 </MudItem>
                 
@@ -30,8 +35,16 @@
                 </MudItem>
                 
                 <MudItem xs="12" sm="6" md="3">
-                    <MudTextField @bind-Value="newCommunication.MemberInfo" Label="Member Information" 
-                                  HelperText="e.g., Member ID: 12345" />
+                    <MudSelect T="int?" Label="Member" @bind-Value="newCommunication.MemberId" Required="true"
+                               RequiredError="Member is required">
+                        @if (members != null)
+                        {
+                            @foreach (var member in members)
+                            {
+                                <MudSelectItem Value="@((int?)member.Id)">@member.FullName (@member.MemberId)</MudSelectItem>
+                            }
+                        }
+                    </MudSelect>
                 </MudItem>
                 
                 <MudItem xs="12" sm="6" md="3">
@@ -135,6 +148,8 @@
     private bool isCreating = false;
     private bool isLoading = true;
     private List<CommunicationResponse> communications = new();
+    private List<MemberDto> members = new();
+    private List<CommunicationTypeResponse> communicationTypes = new();
     private CommunicationResponse? selectedCommunication;
     
     [Inject] private IHttpClientFactory HttpClientFactory { get; set; }
@@ -144,7 +159,7 @@
     
     protected override async Task OnInitializedAsync()
     {
-        await LoadCommunications();
+        await Task.WhenAll(LoadCommunications(), LoadMembers(), LoadCommunicationTypes());
     }
     
     private void OnCommunicationSelected(CommunicationResponse communication)
@@ -168,6 +183,32 @@
         finally
         {
             isLoading = false;
+        }
+    }
+    
+    private async Task LoadMembers()
+    {
+        try
+        {
+            var httpClient = HttpClientFactory.CreateClient("API");
+            members = await httpClient.GetFromJsonAsync<List<MemberDto>>("api/members/active") ?? new();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading members: {ex.Message}", Severity.Error);
+        }
+    }
+    
+    private async Task LoadCommunicationTypes()
+    {
+        try
+        {
+            var httpClient = HttpClientFactory.CreateClient("API");
+            communicationTypes = await httpClient.GetFromJsonAsync<List<CommunicationTypeResponse>>("api/communication-types") ?? new();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading communication types: {ex.Message}", Severity.Error);
         }
     }
     
@@ -251,9 +292,9 @@
     
     public class CreateCommunicationModel
     {
-        public string TypeCode { get; set; } = string.Empty;
+        public int? CommunicationTypeId { get; set; }
         public string Title { get; set; } = string.Empty;
-        public string? MemberInfo { get; set; }
+        public int? MemberId { get; set; }
         public string? SourceFileUrl { get; set; }
     }
 }

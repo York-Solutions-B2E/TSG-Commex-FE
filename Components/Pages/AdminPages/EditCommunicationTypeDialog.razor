@@ -32,23 +32,24 @@
                          Immediate="true"
                          Class="mb-4" />
             
-            <MudSelect T="int" @bind-SelectedValues="selectedStatusIds" 
-                      Label="Valid Statuses" 
-                      MultiSelection="true"
-                      SelectAll="true"
-                      SelectAllText="Select all statuses"
-                      HelperText="Select which statuses are valid for this communication type"
-                      Class="mb-4"
-                      Variant="Variant.Outlined"
-                      AdornmentIcon="@Icons.Material.Filled.CheckBox"
-                      AnchorOrigin="Origin.BottomCenter"
-                      ToStringFunc="@GetStatusDisplayName">
-                @if (isLoadingStatuses)
-                {
-                    <MudProgressLinear Indeterminate="true" />
-                }
-                else
-                {
+            @if (isLoadingStatuses)
+            {
+                <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="56px" Class="mb-4" />
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Loading statuses...</MudText>
+            }
+            else
+            {
+                <MudSelect T="int" @bind-SelectedValues="selectedStatusIds" 
+                          Label="Valid Statuses" 
+                          MultiSelection="true"
+                          SelectAll="true"
+                          SelectAllText="Select all statuses"
+                          HelperText="Select which statuses are valid for this communication type"
+                          Class="mb-4"
+                          Variant="Variant.Outlined"
+                          AdornmentIcon="@Icons.Material.Filled.CheckBox"
+                          AnchorOrigin="Origin.BottomCenter"
+                          ToStringFunc="@GetStatusDisplayName">
                     @foreach (var status in globalStatuses)
                     {
                         <MudSelectItem T="int" Value="@status.Id">
@@ -58,8 +59,8 @@
                             </div>
                         </MudSelectItem>
                     }
-                }
-            </MudSelect>
+                </MudSelect>
+            }
             
             <MudTextField @bind-Value="model.Description" 
                          Label="Description" 
@@ -111,16 +112,17 @@
             model.TypeCode = CommunicationType.TypeCode;
             model.DisplayName = CommunicationType.DisplayName;
             model.Description = CommunicationType.Description;
-            
-            // Set the selected status IDs
-            if (CommunicationType.AssignedStatusIds != null)
-            {
-                selectedStatusIds = new HashSet<int>(CommunicationType.AssignedStatusIds);
-            }
         }
         
-        // Load all global statuses
+        // Load all global statuses first
         await LoadGlobalStatuses();
+        
+        // Set the selected status IDs after statuses are loaded
+        if (CommunicationType?.AssignedStatusIds != null)
+        {
+            selectedStatusIds = new HashSet<int>(CommunicationType.AssignedStatusIds);
+            StateHasChanged(); // Force UI update after setting selected values
+        }
     }
     
     private async Task LoadGlobalStatuses()

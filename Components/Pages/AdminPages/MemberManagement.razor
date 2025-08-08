@@ -1,0 +1,171 @@
+@page "/admin/members"
+@using Microsoft.AspNetCore.Authorization
+@using TSG_Commex_Shared.DTOs
+@attribute [Authorize(Roles = "Admin")]
+@inject IHttpClientFactory HttpClientFactory
+@inject ISnackbar Snackbar
+@inject NavigationManager NavigationManager
+@inject IDialogService DialogService
+
+<PageTitle>Member Management - Commex</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Member Management</h2>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Add"
+            OnClick="OpenCreateDialog">
+            Add Member
+        </MudButton>
+    </div>
+
+    @if (loading)
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    }
+    else if (members.Any())
+    {
+        <MudTable Items="@members" Hover="true" Striped="true" Dense="true">
+            <HeaderContent>
+                <MudTh>Member ID</MudTh>
+                <MudTh>Name</MudTh>
+                <MudTh>Email</MudTh>
+                <MudTh>Phone</MudTh>
+                <MudTh>Enrollment Date</MudTh>
+                <MudTh>Status</MudTh>
+                <MudTh>Communications</MudTh>
+                <MudTh>Actions</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Member ID">@context.MemberId</MudTd>
+                <MudTd DataLabel="Name">@context.FullName</MudTd>
+                <MudTd DataLabel="Email">@context.Email</MudTd>
+                <MudTd DataLabel="Phone">@(context.PhoneNumber ?? "N/A")</MudTd>
+                <MudTd DataLabel="Enrollment">@context.EnrollmentDate.ToString("MM/dd/yyyy")</MudTd>
+                <MudTd DataLabel="Status">
+                    <MudChip T="string" Color="@(context.IsActive ? Color.Success : Color.Error)" Size="Size.Small">
+                        @(context.IsActive ? "Active" : "Inactive")
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="Communications">@context.CommunicationCount</MudTd>
+                <MudTd DataLabel="Actions">
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small"
+                        OnClick="@(() => OpenEditDialog(context))" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
+                        OnClick="@(() => ConfirmDeleteMember(context))" />
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+    else
+    {
+        <MudAlert Severity="Severity.Info">No members found. Click "Add Member" to create the first member.</MudAlert>
+    }
+</div>
+
+@code {
+    private List<MemberDto> members = new();
+    private bool loading = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMembers();
+    }
+
+    private async Task LoadMembers()
+    {
+        loading = true;
+        try
+        {
+            var httpClient = HttpClientFactory.CreateClient("API");
+            var response = await httpClient.GetAsync("api/members");
+            if (response.IsSuccessStatusCode)
+            {
+                members = await response.Content.ReadFromJsonAsync<List<MemberDto>>() ?? new();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading members: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task OpenCreateDialog()
+    {
+        var parameters = new DialogParameters();
+        var options = new DialogOptions 
+        { 
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.Medium,
+            FullWidth = true
+        };
+        
+        var dialog = await DialogService.ShowAsync<CreateMemberDialog>("Add New Member", parameters, options);
+        var result = await dialog.Result;
+        
+        if (!result.Canceled)
+        {
+            await LoadMembers(); // Reload the list if a member was created
+        }
+    }
+
+    private async Task OpenEditDialog(MemberDto member)
+    {
+        var parameters = new DialogParameters
+        {
+            { "Member", member }
+        };
+        var options = new DialogOptions 
+        { 
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.Medium,
+            FullWidth = true
+        };
+        
+        var dialog = await DialogService.ShowAsync<EditMemberDialog>($"Edit Member: {member.FullName}", parameters, options);
+        var result = await dialog.Result;
+        
+        if (!result.Canceled)
+        {
+            await LoadMembers(); // Reload the list if a member was updated
+        }
+    }
+
+    private async Task ConfirmDeleteMember(MemberDto member)
+    {
+        var result = await DialogService.ShowMessageBox(
+            "Confirm Delete",
+            $"Are you sure you want to delete member {member.FullName}? This will soft-delete the member (mark as inactive).",
+            yesText: "Delete", cancelText: "Cancel");
+            
+        if (result == true)
+        {
+            await DeleteMember(member);
+        }
+    }
+
+    private async Task DeleteMember(MemberDto member)
+    {
+        try
+        {
+            var httpClient = HttpClientFactory.CreateClient("API");
+            var response = await httpClient.DeleteAsync($"api/members/{member.Id}");
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("Member deleted successfully", Severity.Success);
+                await LoadMembers();
+            }
+            else
+            {
+                Snackbar.Add("Error deleting member", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error deleting member: {ex.Message}", Severity.Error);
+        }
+    }
+}

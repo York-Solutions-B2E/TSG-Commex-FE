@@ -1,0 +1,149 @@
+@using TSG_Commex_Shared.DTOs
+@inject IHttpClientFactory HttpClientFactory
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudGrid>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="memberForm.MemberId" Label="Member ID *" Required="true" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="memberForm.Email" Label="Email *" Required="true" 
+                    InputType="InputType.Email" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="memberForm.FirstName" Label="First Name *" Required="true" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="memberForm.LastName" Label="Last Name *" Required="true" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="memberForm.PhoneNumber" Label="Phone Number" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudDatePicker @bind-Date="memberForm.DateOfBirth" Label="Date of Birth *" Required="true" />
+            </MudItem>
+            <MudItem xs="12">
+                <MudTextField @bind-Value="memberForm.Address" Label="Address" />
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudTextField @bind-Value="memberForm.City" Label="City" />
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudTextField @bind-Value="memberForm.State" Label="State" />
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudTextField @bind-Value="memberForm.ZipCode" Label="Zip Code" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudDatePicker @bind-Date="memberForm.EnrollmentDate" Label="Enrollment Date *" Required="true" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudSwitch T="bool" @bind-Checked="memberForm.IsActive" Label="Active" Color="Color.Primary" />
+            </MudItem>
+        </MudGrid>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="CreateMember" Disabled="@isCreating">
+            @if (isCreating)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="ms-2" />
+                <span class="ms-2">Creating...</span>
+            }
+            else
+            {
+                <span>Create</span>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
+
+    private MemberFormModel memberForm = new MemberFormModel
+    {
+        EnrollmentDate = DateTime.Today,
+        DateOfBirth = DateTime.Today.AddYears(-30),
+        IsActive = true
+    };
+    private bool isCreating = false;
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+
+    private async Task CreateMember()
+    {
+        if (string.IsNullOrWhiteSpace(memberForm.MemberId) ||
+            string.IsNullOrWhiteSpace(memberForm.FirstName) ||
+            string.IsNullOrWhiteSpace(memberForm.LastName) ||
+            string.IsNullOrWhiteSpace(memberForm.Email) ||
+            !memberForm.DateOfBirth.HasValue ||
+            !memberForm.EnrollmentDate.HasValue)
+        {
+            Snackbar.Add("Please fill in all required fields", Severity.Warning);
+            return;
+        }
+
+        isCreating = true;
+        try
+        {
+            var httpClient = HttpClientFactory.CreateClient("API");
+            var createDto = new CreateMemberDto
+            {
+                MemberId = memberForm.MemberId,
+                FirstName = memberForm.FirstName,
+                LastName = memberForm.LastName,
+                Email = memberForm.Email,
+                PhoneNumber = memberForm.PhoneNumber,
+                Address = memberForm.Address,
+                City = memberForm.City,
+                State = memberForm.State,
+                ZipCode = memberForm.ZipCode,
+                DateOfBirth = memberForm.DateOfBirth.Value,
+                EnrollmentDate = memberForm.EnrollmentDate.Value,
+                IsActive = memberForm.IsActive
+            };
+
+            var response = await httpClient.PostAsJsonAsync("api/members", createDto);
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("Member created successfully", Severity.Success);
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                Snackbar.Add($"Error creating member: {error}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error creating member: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isCreating = false;
+        }
+    }
+
+    private class MemberFormModel
+    {
+        public string MemberId { get; set; } = string.Empty;
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string? PhoneNumber { get; set; }
+        public string? Address { get; set; }
+        public string? City { get; set; }
+        public string? State { get; set; }
+        public string? ZipCode { get; set; }
+        public DateTime? DateOfBirth { get; set; }
+        public DateTime? EnrollmentDate { get; set; }
+        public bool IsActive { get; set; }
+    }
+}
